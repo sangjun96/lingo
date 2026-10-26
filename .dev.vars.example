@@ -1,2 +1,1 @@
-# Copy to .dev.vars and fill in locally. Never commit real credentials.
-GEMINI_API_KEY=
+# Add local Worker secrets here when needed. Never commit real credentials.
