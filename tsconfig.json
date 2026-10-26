@@ -8,7 +8,7 @@
     "strict": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "types": ["./worker-configuration.d.ts", "node"]
+    "types": ["node"]
   },
-  "include": ["src/worker/**/*.ts", "vite.config.ts", "vitest.config.mts", "worker-configuration.d.ts"]
+  "include": ["src/worker/**/*.ts", "vite.config.ts", "vitest.config.mts", ".cloudflare/types/index.d.ts"]
 }

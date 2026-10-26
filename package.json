@@ -3,28 +3,28 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "dev": "vite",
-    "build": "npm run typecheck && vite build",
+    "dev": "cf dev",
+    "build": "npm run typecheck && cf build",
     "preview": "vite preview",
-    "deploy": "npm run build && wrangler deploy",
-    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.app.json && tsc -p test/tsconfig.json",
+    "deploy": "npm run typecheck && cf deploy",
+    "typecheck": "npm run cf-typegen && tsc -p tsconfig.json && tsc -p tsconfig.app.json && tsc -p test/tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "cf-typegen": "wrangler types --strict-vars=false"
+    "cf-typegen": "cf workers types"
   },
   "devDependencies": {
-    "@cloudflare/vite-plugin": "^1.65.0",
+    "@cloudflare/vite-plugin": "^2.0.0-beta.v.4",
     "@cloudflare/vitest-plugin": "^1.4.3",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^26.6.5",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
+    "cf": "^1.0.0-beta.21",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",
     "vite": "^8.3.5",
-    "vitest": "~5.0.3",
-    "wrangler": "^4.152.0"
+    "vitest": "~5.0.3"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

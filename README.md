@@ -39,8 +39,9 @@ TTS는 `gemini-3.8-flash-lite-tts`이며 `.dev.vars`에서 모델을 변경할 �
 - `components.json`: shadcn/ui 설정. `@/`는 `src/client/`를 가리킵니다.
 - `src/client/components/ui/`: shadcn/ui 컴포넌트 소스.
 - `src/client/style.css`: Tailwind CSS 4와 shadcn/ui 테마.
-- `wrangler.jsonc`: Worker, SPA, Agents 바인딩 및 관측 설정.
-- `worker-configuration.d.ts`: `npm run cf-typegen`으로 생성한 Workers 타입.
+- `cloudflare.config.ts`: `cf` CLI용 Worker, SPA, Agents 바인딩 및 관측 설정.
+- `vitest.config.mts`: `@cloudflare/vitest-plugin`용 Miniflare 바인딩 및 로컬 테스트 런타임 설정.
+- `.cloudflare/types/index.d.ts`: `npm run cf-typegen` 또는 `cf dev`/`cf build`가 생성하는 Workers 타입.
 - `test/index.spec.ts`: Agent 연결 및 제거된 API의 404 응답을 검증하는 Workers 런타임 테스트.
 
 | API | 동작 |
@@ -68,8 +69,8 @@ TTS는 처음 재생할 때 생성·저장하며 이후에는 R2 파일을 재�
 중단된 작업은 `onFiberRecovered`에서 다시 시작합니다. R2 저장 후에는 체크포인트에서 원본 음성을 제거하고, 복구 시 턴에 저장된 키로 읽습니다.
 외부 모델 요청이 완료된 직후 프로세스가 중단되면 해당 단계의 API가 재호출될 수 있습니다.
 
-로컬 개발과 테스트는 로컬 R2 저장소를 사용합니다. 실제 배포에는 `wrangler.jsonc`의 `bucket_name`과 같은 이름의
-비공개 R2 버킷(`lingo-audio`)이 필요합니다. 버킷 생성과 배포는 별도로 진행합니다.
+로컬 개발과 테스트는 로컬 R2 저장소를 사용합니다. 실제 배포에는 `cloudflare.config.ts`의 `AUDIO_BUCKET`에
+지정한 이름의 비공개 R2 버킷(`lingo-audio`)이 필요합니다. 버킷 생성과 배포는 별도로 진행합니다.
 녹음과 TTS 파일은 자동 삭제하지 않으며, 새 대화를 시작해도 이전 세션의 파일을 보관합니다.
 
 현재 사용자 인증은 없으며 세션 ID를 아는 사람이 그 세션에 접근할 수 있습니다. 개인 로컬 사용 범위이며,
@@ -94,7 +95,7 @@ bunx shadcn@latest add dialog
 npm run cf-typegen
 npm test
 npm run build
-npx wrangler deploy --dry-run
+npm run deploy -- --dry-run
 ```
 
 환경 변수나 바인딩을 변경하면 타입을 다시 생성합니다.
@@ -107,8 +108,8 @@ dry run은 빌드와 패키징만 검증하며 실제 배포를 수행하지 않
 브라우저 로그인이 필요한 명령은 직접 실행합니다.
 
 ```sh
-npx wrangler login
-npx wrangler whoami
+cf auth login
+cf auth whoami
 ```
 
 실제 배포는 배포 대상 및 시점을 확정한 뒤 진행합니다.
@@ -121,4 +122,6 @@ npx wrangler whoami
 
 ## 참고
 
+- [Wrangler 프로젝트를 Cloudflare CLI로 마이그레이션](https://developers.cloudflare.com/cf/wrangler/migrate/)
+- [Cloudflare CLI 설정](https://developers.cloudflare.com/cf/projects/cloudflare-config/)
 - [Cloudflare React + Vite](https://developers.cloudflare.com/workers/framework-guides/web-apps/react/)
