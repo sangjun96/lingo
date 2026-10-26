@@ -1,14 +1,23 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "lingo",
-  "main": "src/index.ts",
+  "main": "src/worker/index.ts",
   "compatibility_date": "2026-10-26",
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api", "/api/*"]
+    "run_worker_first": ["/api", "/api/*", "/agents", "/agents/*"]
   },
-  "secrets": { "required": [] },
+  "durable_objects": {
+    "bindings": [{ "name": "LingoAgent", "class_name": "LingoAgent" }]
+  },
+  "r2_buckets": [
+    { "binding": "AUDIO_BUCKET", "bucket_name": "lingo-audio" }
+  ],
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["LingoAgent"] }
+  ],
+  "secrets": { "required": ["GEMINI_API_KEY"] },
   "observability": {
     "enabled": true,
     "traces": { "enabled": true, "head_sampling_rate": 0.01 }

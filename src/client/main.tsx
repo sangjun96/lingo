@@ -1,13 +1,16 @@
-import { StrictMode } from 'react';
+import { StrictMode, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { ConversationPage } from './features/conversation/conversation-page';
+import { loadSessionId, newSessionId } from './features/conversation/api';
 import './style.css';
 
 function App() {
-  return (
-    <main className="mx-auto my-16 max-w-160 px-6">
-      <h1 className="text-3xl font-bold">Lingo</h1>
-    </main>
-  );
+	const [sessionId, setSessionId] = useState(loadSessionId);
+	return <ConversationPage key={sessionId} sessionId={sessionId} onNew={() => setSessionId(newSessionId())} />;
 }
 
-createRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>);
+createRoot(document.getElementById('root')!).render(
+	<StrictMode>
+		<App />
+	</StrictMode>,
+);
