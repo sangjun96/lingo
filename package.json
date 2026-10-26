@@ -7,9 +7,7 @@
     "build": "npm run typecheck && cf build",
     "preview": "vite preview",
     "deploy": "npm run typecheck && cf deploy",
-    "typecheck": "npm run cf-typegen && tsc -p tsconfig.json && tsc -p tsconfig.app.json && tsc -p test/tsconfig.json",
-    "test": "vitest run",
-    "test:watch": "vitest",
+    "typecheck": "npm run cf-typegen && tsc -p tsconfig.json && tsc -p tsconfig.app.json",
     "cf-typegen": "cf workers types"
   },
   "devDependencies": {

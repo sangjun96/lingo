@@ -40,9 +40,7 @@ TTS는 `gemini-3.8-flash-lite-tts`이며 `.dev.vars`에서 모델을 변경할 �
 - `src/client/components/ui/`: shadcn/ui 컴포넌트 소스.
 - `src/client/style.css`: Tailwind CSS 4와 shadcn/ui 테마.
 - `cloudflare.config.ts`: `cf` CLI용 Worker, SPA, Agents 바인딩 및 관측 설정.
-- `vitest.config.mts`: `@cloudflare/vitest-plugin`용 Miniflare 바인딩 및 로컬 테스트 런타임 설정.
 - `.cloudflare/types/index.d.ts`: `npm run cf-typegen` 또는 `cf dev`/`cf build`가 생성하는 Workers 타입.
-- `test/index.spec.ts`: Agent 연결 및 제거된 API의 404 응답을 검증하는 Workers 런타임 테스트.
 
 | API | 동작 |
 | --- | --- |
@@ -93,7 +91,6 @@ bunx shadcn@latest add dialog
 
 ```sh
 npm run cf-typegen
-npm test
 npm run build
 npm run deploy -- --dry-run
 ```

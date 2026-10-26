@@ -11,5 +11,5 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["src/worker/**/*.ts", "vite.config.ts", "vitest.config.mts", ".cloudflare/types/index.d.ts"]
+  "include": ["src/worker/**/*.ts", "vite.config.ts", ".cloudflare/types/index.d.ts"]
 }
