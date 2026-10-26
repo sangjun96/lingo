@@ -1,6 +1,8 @@
 import { StrictMode, useState } from 'react';
 import type { FormEvent } from 'react';
 import { createRoot } from 'react-dom/client';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 import './style.css';
 
 function App() {
@@ -28,15 +30,15 @@ function App() {
   }
 
   return (
-    <main>
-      <h1>Lingo</h1>
-      <p>Gemini 연결 테스트</p>
-      <form onSubmit={submit}>
-        <label htmlFor="prompt">프롬프트</label>
-        <textarea id="prompt" value={prompt} onChange={(event) => setPrompt(event.target.value)} required maxLength={4000} rows={5} />
-        <button disabled={pending || !prompt.trim()}>{pending ? '응답 기다리는 중…' : '보내기'}</button>
+    <main className="mx-auto my-16 max-w-160 px-6">
+      <h1 className="text-3xl font-bold">Lingo</h1>
+      <p className="mt-2 mb-6 text-muted-foreground">Gemini 연결 테스트</p>
+      <form className="grid gap-3" onSubmit={submit}>
+        <label className="text-sm font-medium" htmlFor="prompt">프롬프트</label>
+        <Textarea id="prompt" value={prompt} onChange={(event) => setPrompt(event.target.value)} required maxLength={4000} rows={5} />
+        <Button type="submit" disabled={pending || !prompt.trim()}>{pending ? '응답 기다리는 중…' : '보내기'}</Button>
       </form>
-      <output aria-live="polite">{result}</output>
+      <output className="mt-6 block whitespace-pre-wrap" aria-live="polite">{result}</output>
     </main>
   );
 }
