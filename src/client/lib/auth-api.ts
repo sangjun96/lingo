@@ -27,6 +27,8 @@ export async function signOut() {
 	const response = await fetch('/api/auth/sign-out', {
 		method: 'POST',
 		credentials: 'same-origin',
+		headers: { 'Content-Type': 'application/json' },
+		body: '{}',
 	});
 	if (!response.ok) throw await responseError(response);
 }
