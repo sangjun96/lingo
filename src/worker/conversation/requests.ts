@@ -42,10 +42,9 @@ export async function readTurnInput(request: Request): Promise<TurnInput> {
 			if (error instanceof ServiceError) throw error;
 			throw new ServiceError('입력 형식이 올바르지 않아요.', 400);
 		}
-		const text = body && typeof body === 'object' && 'text' in body ? body.text : undefined;
-		if (text !== null && (typeof text !== 'string' || !text.trim() || text.length > 4000))
-			throw new ServiceError('1~4000자의 문장을 입력해 주세요.', 400);
-		return { id, replyTo, text: typeof text === 'string' ? text.trim() : null };
+		if (!body || typeof body !== 'object' || !('text' in body) || body.text !== null)
+			throw new ServiceError('대화를 시작하려면 올바른 요청을 보내 주세요.', 400);
+		return { id, replyTo, text: null };
 	}
 	const mimeType = contentType === 'audio/mp4' ? 'audio/m4a' : contentType;
 	if (!['audio/webm', 'audio/ogg', 'audio/wav', 'audio/m4a', 'audio/mpeg'].includes(mimeType))

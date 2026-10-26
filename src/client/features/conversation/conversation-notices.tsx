@@ -48,7 +48,7 @@ export function ConversationNotices({
 								<RotateCcw /> {turn.recording && !turn.userText ? '음성 다시 처리하기' : '답변 다시 요청하기'}
 							</Button>
 						)}
-						<p>다시 말하거나 글로 입력해도 좋아요.</p>
+						<p>잠시 후 다시 시도해 주세요.</p>
 					</AlertDescription>
 				</Alert>
 			)}

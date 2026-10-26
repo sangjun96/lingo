@@ -11,7 +11,7 @@ export function useConversation(sessionId: string) {
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const sending = useRef(false);
-	const pending = useRef<{ id: string; replyTo: string | null; input: string | Blob | null } | null>(null);
+	const pending = useRef<{ id: string; replyTo: string | null; input: Blob | null } | null>(null);
 	const apply = useCallback((next: ConversationState) => {
 		setState((current) => (next.revision >= current.revision ? next : current));
 		setLoaded(true);
@@ -35,7 +35,7 @@ export function useConversation(sessionId: string) {
 		return () => controller.abort();
 	}, [base, apply]);
 
-	const send = async (input: string | Blob | null, id = crypto.randomUUID()) => {
+	const send = async (input: Blob | null, id = crypto.randomUUID()) => {
 		if (sending.current) return;
 		sending.current = true;
 		setSubmitting(true);

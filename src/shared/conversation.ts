@@ -16,7 +16,7 @@ export type Learning = {
 
 export type Turn = {
 	id: string;
-	source: 'opening' | 'text' | 'audio';
+	source: 'opening' | 'audio';
 	userText: string | null;
 	recording?: { key: string; mimeType: string };
 	assistant: Expression | null;

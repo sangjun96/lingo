@@ -8,7 +8,7 @@ export async function readResponse<T>(response: Response): Promise<T> {
 	return response.json() as Promise<T>;
 }
 
-export async function submitTurn(base: string, id: string, replyTo: string | null, input: string | Blob | null) {
+export async function submitTurn(base: string, id: string, replyTo: string | null, input: Blob | null) {
 	const headers: Record<string, string> = { 'X-Request-Id': id };
 	if (replyTo) headers['X-Reply-To'] = replyTo;
 	headers['Content-Type'] = input instanceof Blob ? input.type : 'application/json';
@@ -16,7 +16,7 @@ export async function submitTurn(base: string, id: string, replyTo: string | nul
 		await fetch(`${base}/turns`, {
 			method: 'POST',
 			headers,
-			body: input instanceof Blob ? input : JSON.stringify({ text: input }),
+			body: input instanceof Blob ? input : JSON.stringify({ text: null }),
 		}),
 	);
 }

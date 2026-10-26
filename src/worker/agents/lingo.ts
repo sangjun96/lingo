@@ -68,8 +68,8 @@ export class LingoAgent extends Agent<Env & GeminiEnv, ConversationState> {
 			throw new ServiceError('새 대화를 시작해 주세요. 한 대화에는 최대 40턴까지 담을 수 있어요.', 409);
 		const latest = this.state.turns.at(-1);
 		if ((latest?.id ?? null) !== input.replyTo) throw new ServiceError('새 답변이 도착했어요. 최신 대화를 확인해 주세요.', 409);
-		if (latest && ((!latest.assistant && !latest.error) || (!input.text && !input.audio)))
-			throw new ServiceError('문장을 입력하거나 녹음해 주세요.', 400);
+		if (latest && ((!latest.assistant && !latest.error) || !input.audio))
+			throw new ServiceError('녹음해 주세요.', 400);
 		this.publish({
 			phase: input.audio ? 'transcribing' : 'thinking',
 			activeTurnId: input.id,
@@ -93,7 +93,7 @@ export class LingoAgent extends Agent<Env & GeminiEnv, ConversationState> {
 		if (this.state.phase !== 'idle' || this.state.turns.at(-1)?.id !== id || !turn.error)
 			throw new ServiceError('현재 턴만 다시 시도할 수 있어요.', 409);
 		if (!turn.userText && !turn.recording && turn.source !== 'opening')
-			throw new ServiceError('말소리를 다시 녹음하거나 글로 입력해 주세요.', 422);
+			throw new ServiceError('말소리를 다시 녹음해 주세요.', 422);
 		this.updateTurn(id, { error: undefined });
 		this.publish({ phase: turn.recording && !turn.userText ? 'transcribing' : 'thinking', activeTurnId: id });
 		this.launch({ kind: 'turn', input: { id, text: turn.userText, replyTo: null } });

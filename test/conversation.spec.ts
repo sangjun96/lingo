@@ -15,11 +15,20 @@ function endpoint(session: string, path: string) {
 async function state(session: string) {
 	return (await exports.default.fetch(endpoint(session, '/state'))).json<ConversationState>();
 }
-async function send(session: string, id: string, text: string | null, replyTo?: string) {
+async function send(session: string, id: string, replyTo?: string) {
 	const response = await exports.default.fetch(endpoint(session, '/turns'), {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json', 'X-Request-Id': id, ...(replyTo ? { 'X-Reply-To': replyTo } : {}) },
-		body: JSON.stringify({ text }),
+		body: JSON.stringify({ text: null }),
+	});
+	await response.arrayBuffer();
+	return response;
+}
+async function sendAudio(session: string, id: string, replyTo?: string) {
+	const response = await exports.default.fetch(endpoint(session, '/turns'), {
+		method: 'POST',
+		headers: { 'Content-Type': 'audio/webm', 'X-Request-Id': id, ...(replyTo ? { 'X-Reply-To': replyTo } : {}) },
+		body: new Uint8Array([1, 2, 3]),
 	});
 	await response.arrayBuffer();
 	return response;
@@ -81,17 +90,17 @@ describe('Conversation Agent', () => {
 		await ready(session);
 	});
 
-	it('creates a reply, three suggestions, feedback, and persists the session in SQLite', async () => {
+	it('creates a reply from speech, three suggestions, feedback, and persists the session in SQLite', async () => {
 		const google = mockGoogle();
 		const session = crypto.randomUUID();
 		const id = crypto.randomUUID();
-		expect((await send(session, id, 'I go shopping yesterday.')).status).toBe(202);
+		expect((await sendAudio(session, id)).status).toBe(202);
 		const current = await ready(session);
 		expect(current.turns[0].assistant?.translation).toBe(learningResponse.translation);
 		expect(current.turns[0].learning.suggestions).toHaveLength(3);
 		expect(current.turns[0].learning.feedback?.improved?.text).toBe('I went shopping yesterday.');
 		const calls = google.mock.calls.length;
-		expect((await send(session, id, 'I go shopping yesterday.')).status).toBe(202);
+		expect((await sendAudio(session, id)).status).toBe(202);
 		expect(google).toHaveBeenCalledTimes(calls);
 		const persisted = await runInDurableObject(env.LingoAgent.getByName(session), (_agent, context) =>
 			context.storage.sql
@@ -147,7 +156,7 @@ describe('Conversation Agent', () => {
 			const google = mockGoogle();
 			const session = crypto.randomUUID();
 			const id = crypto.randomUUID();
-			await send(session, id, null);
+			await send(session, id);
 			await ready(session);
 			const expressionId = `${id}-${expression}`;
 			const audioUrl = endpoint(session, `/audio/${expressionId}`);
@@ -177,7 +186,7 @@ describe('Conversation Agent', () => {
 		const google = mockGoogle();
 		const session = crypto.randomUUID();
 		const id = crypto.randomUUID();
-		await send(session, id, null);
+		await send(session, id);
 		await ready(session);
 		const expressionId = `${id}-assistant`;
 		await runInDurableObject(env.LingoAgent.getByName(session), (_agent, context) => {
@@ -199,11 +208,11 @@ describe('Conversation Agent', () => {
 			return textResponse('What do you usually do on weekends?');
 		});
 		const first = crypto.randomUUID();
-		expect((await send(session, first, 'Hello.')).status).toBe(202);
-		expect((await send(session, crypto.randomUUID(), 'Another answer.', first)).status).toBe(409);
+		expect((await send(session, first)).status).toBe(202);
+		expect((await sendAudio(session, crypto.randomUUID(), first)).status).toBe(409);
 		google.mockImplementation(async () => textResponse(JSON.stringify(learningResponse)));
 		await ready(session);
-		expect((await send(session, crypto.randomUUID(), 'A stale answer.')).status).toBe(409);
+		expect((await sendAudio(session, crypto.randomUUID())).status).toBe(409);
 	});
 
 	it('keeps the reply available when learning fails and retries only the learning job', async () => {
@@ -213,7 +222,7 @@ describe('Conversation Agent', () => {
 			.spyOn(globalThis, 'fetch')
 			.mockImplementationOnce(async () => textResponse('What do you usually do on weekends?'))
 			.mockImplementationOnce(async () => new Response('unavailable', { status: 503 }));
-		await send(session, id, 'I go shopping yesterday.');
+		await send(session, id);
 		await vi.waitFor(async () => expect((await state(session)).turns[0]?.learning.status).toBe('error'));
 		expect((await state(session)).turns[0].assistant?.text).toBeTruthy();
 		expect((await state(session)).phase).toBe('idle');
@@ -243,7 +252,7 @@ describe('Conversation Agent', () => {
 		expect(current.turns[0].userText).toBe('I go shopping yesterday.');
 		expect(current.turns[0].error).toBeUndefined();
 		expect(retryGoogle).toHaveBeenCalledTimes(3);
-		expect((await send(session, crypto.randomUUID(), 'Hello.', first)).status).toBe(202);
+		expect((await sendAudio(session, crypto.randomUUID(), first)).status).toBe(202);
 		await ready(session, 2);
 	});
 

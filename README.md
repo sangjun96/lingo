@@ -34,7 +34,7 @@ TTS는 `gemini-3.8-flash-lite-tts`이며 `.dev.vars`에서 모델을 변경할 �
 - `src/worker/index.ts`: Agents 라우팅과 404 응답.
 - `src/worker/agents/lingo.ts`: Cloudflare Agents SDK의 `LingoAgent` 클래스.
 - `src/worker/services/`: Gen AI SDK 클라이언트, 전사·응답, 학습 자료 검증, TTS 서비스.
-- `src/worker/conversation/requests.ts`: 텍스트·음성 입력 검증과 크기 제한.
+- `src/worker/conversation/requests.ts`: 대화 시작 요청과 음성 입력 검증, 크기 제한.
 - `vite.config.ts`: React, Tailwind CSS, Cloudflare Vite 플러그인.
 - `components.json`: shadcn/ui 설정. `@/`는 `src/client/`를 가리킵니다.
 - `src/client/components/ui/`: shadcn/ui 컴포넌트 소스.
@@ -52,8 +52,8 @@ TTS는 `gemini-3.8-flash-lite-tts`이며 `.dev.vars`에서 모델을 변경할 �
 | `POST /agents/lingo-agent/{instance}/retry/learning/{turnId}` | 실패한 학습 자료만 다시 생성 |
 | `GET /agents/lingo-agent/{instance}/audio/{expressionId}` | 서버에 저장된 문장만 TTS로 생성하고 R2에서 다시 재생 |
 
-턴 입력은 `application/json`의 `{ "text": "..." }` 또는 오디오 바이너리입니다.
-`{ "text": null }`은 첫 질문을 생성합니다. 같은 요청 ID는 중복 처리하지 않으며 진행 중인 턴과 오래된 응답 대상은 409로 거부합니다.
+첫 질문은 `application/json`의 `{ "text": null }`로 생성하고, 이후 사용자 답변은 오디오 바이너리로 전송합니다.
+같은 요청 ID는 중복 처리하지 않으며 진행 중인 턴과 오래된 응답 대상은 409로 거부합니다.
 React `useAgent`가 WebSocket으로 상태를 동기화합니다. 입력과 재시도는 Agent의 HTTP 명령으로 요청하며,
 Agent가 처리 결과를 저장하고 연결된 화면에 알립니다. 탭 전환과 해설 펼침은 클라이언트 상태로만 관리합니다.
 

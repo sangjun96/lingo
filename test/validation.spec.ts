@@ -15,13 +15,13 @@ describe('Turn and provider validation', () => {
 	it('rejects missing API keys before contacting Google', () => {
 		expect(() => requireApiKey({})).toThrow('GEMINI_API_KEY');
 	});
-	it.each(['', 'a'.repeat(4001)])('rejects empty or oversized text', async (text) => {
+	it('rejects text turn requests', async () => {
 		const request = new Request('https://example.com', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json', 'X-Request-Id': crypto.randomUUID() },
-			body: JSON.stringify({ text }),
+			body: JSON.stringify({ text: 'Hello.' }),
 		});
-		await expect(readTurnInput(request)).rejects.toThrow('1~4000');
+		await expect(readTurnInput(request)).rejects.toThrow('대화를 시작하려면');
 	});
 	it('rejects audio over the limit even without a Content-Length header', async () => {
 		const request = new Request('https://example.com', {

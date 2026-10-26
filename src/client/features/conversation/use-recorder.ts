@@ -28,7 +28,7 @@ export function useRecorder(onRecorded: (blob: Blob) => void) {
 	const start = async () => {
 		if (requesting.current || recorder.current?.state === 'recording') return;
 		if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
-			setError('이 브라우저에서는 녹음을 지원하지 않아요. 글로 대화해 주세요.');
+			setError('이 브라우저에서는 녹음을 지원하지 않아요.');
 			return;
 		}
 		requesting.current = true;
@@ -44,7 +44,7 @@ export function useRecorder(onRecorded: (blob: Blob) => void) {
 			}
 			stream.current = media;
 			const mimeType = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/ogg;codecs=opus'].find((type) => MediaRecorder.isTypeSupported(type));
-			if (!mimeType) throw new Error('지원하는 녹음 형식을 찾지 못했어요. 글로 입력해 주세요.');
+			if (!mimeType) throw new Error('지원하는 녹음 형식을 찾지 못했어요.');
 			const instance = new MediaRecorder(media, { mimeType, audioBitsPerSecond: 64_000 });
 			recorder.current = instance;
 			const chunks: Blob[] = [];
@@ -83,7 +83,7 @@ export function useRecorder(onRecorded: (blob: Blob) => void) {
 			setStatus('idle');
 			setError(
 				cause instanceof DOMException && cause.name === 'NotAllowedError'
-					? '마이크 사용을 허용해 주세요. 글로도 대화할 수 있어요.'
+					? '마이크 사용을 허용해 주세요.'
 					: cause instanceof Error
 						? cause.message
 						: '마이크를 시작하지 못했어요.',

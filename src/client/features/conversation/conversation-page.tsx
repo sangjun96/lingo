@@ -19,7 +19,7 @@ export function ConversationPage({ sessionId, onNew }: { sessionId: string; onNe
 	const [viewedId, setViewedId] = useState<string | null>(null);
 	const autoplay = useRef<string | null>(null);
 	const content = useRef<HTMLElement | null>(null);
-	const send = async (input: string | Blob | null) => {
+	const send = async (input: Blob | null) => {
 		player.stop();
 		const id = crypto.randomUUID();
 		autoplay.current = id;
@@ -132,7 +132,6 @@ export function ConversationPage({ sessionId, onNew }: { sessionId: string; onNe
 					player.stop();
 					void recorder.start();
 				}}
-				onSend={send}
 			/>
 		</div>
 	);

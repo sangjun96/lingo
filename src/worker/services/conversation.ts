@@ -26,6 +26,6 @@ export async function transcribe(env: GeminiEnv, data: string, mimeType: string)
 		[{ role: 'user', parts: [{ inlineData: { mimeType, data } }] }],
 	);
 	if (text === '[NO_SPEECH]' || text.length > 4000)
-		throw new ServiceError('말소리를 확인하지 못했어요. 다시 녹음하거나 글로 입력해 주세요.', 422);
+		throw new ServiceError('말소리를 확인하지 못했어요. 다시 녹음해 주세요.', 422);
 	return text;
 }

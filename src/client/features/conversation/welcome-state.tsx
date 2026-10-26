@@ -22,7 +22,7 @@ export function WelcomeState({ disabled, onStart }: { disabled: boolean; onStart
 				<CardContent className="space-y-4">
 					<p className="font-medium">오늘은 어떤 이야기를 해볼까요?</p>
 					<p className="text-sm leading-relaxed text-muted-foreground">
-						AI가 먼저 가벼운 질문을 건넬게요. 직접 말하거나 글로 시작해도 좋아요.
+						AI가 먼저 가벼운 질문을 건넬게요. 편하게 대답해 보세요.
 					</p>
 					<Button className="min-h-11" disabled={disabled} onClick={onStart}>
 						대화 시작하기 <ArrowUpRight />
