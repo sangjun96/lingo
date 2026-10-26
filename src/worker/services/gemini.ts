@@ -1,4 +1,4 @@
-import { GoogleGenAI, type ContentListUnion } from '@google/genai';
+import { GoogleGenAI, ThinkingLevel, type ContentListUnion } from '@google/genai';
 
 export type GeminiEnv = {
 	GEMINI_API_KEY?: string;
@@ -29,10 +29,11 @@ export function createGeminiClient(env: GeminiEnv) {
 
 export async function generateText(env: GeminiEnv, system: string, contents: ContentListUnion, schema?: unknown) {
 	const data = await createGeminiClient(env).models.generateContent({
-		model: env.GEMINI_MODEL || 'gemini-3.8-flash',
+		model: env.GEMINI_MODEL || 'gemini-3.6-flash',
 		contents,
 		config: {
 			systemInstruction: system,
+			thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
 			...(schema ? { responseMimeType: 'application/json', responseJsonSchema: schema } : {}),
 			abortSignal: AbortSignal.timeout(60_000),
 		},

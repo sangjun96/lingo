@@ -20,7 +20,7 @@ bun run account:create:local
 ```
 
 계정 생성 스크립트는 비밀번호를 해시해 `cf d1 raw`로 D1의 `user`·`account` 테이블에 직접 추가합니다. 로그인 화면에는 가입 기능이 없습니다.
-모든 Gemini 호출은 서버의 공식 `@google/genai` SDK를 사용합니다. 기본 모델은 `gemini-3.8-flash`,
+모든 Gemini 호출은 서버의 공식 `@google/genai` SDK를 사용합니다. 기본 모델은 `gemini-3.6-flash`(thinking level `LOW`),
 TTS는 `gemini-3.8-flash-lite-tts`이며 `.dev.vars`에서 모델을 변경할 수 있습니다.
 
 ## 대화와 학습

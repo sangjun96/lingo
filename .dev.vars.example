@@ -2,5 +2,5 @@
 GEMINI_API_KEY=
 BETTER_AUTH_SECRET=
 # Optional model overrides:
-GEMINI_MODEL=gemini-3.8-flash
+GEMINI_MODEL=gemini-3.6-flash
 GEMINI_TTS_MODEL=gemini-3.8-flash-lite-tts
