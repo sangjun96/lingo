@@ -4,3 +4,12 @@ BETTER_AUTH_SECRET=
 # Optional model overrides:
 GEMINI_MODEL=gemini-3.6-flash
 GEMINI_TTS_MODEL=gemini-3.8-flash-lite-tts
+# Task-specific overrides (fall back to GEMINI_MODEL):
+# GEMINI_REPLY_MODEL=gemini-3.6-flash
+# GEMINI_TRANSCRIBE_MODEL=gemini-3.6-flash
+# GEMINI_LEARNING_MODEL=gemini-3.6-flash
+# All tasks default to LOW.
+# Set a thinking level supported by your chosen model:
+# GEMINI_REPLY_THINKING=LOW
+# GEMINI_TRANSCRIBE_THINKING=LOW
+# GEMINI_LEARNING_THINKING=LOW

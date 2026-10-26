@@ -1,14 +1,15 @@
+import { languages, type Language } from '../../../shared/languages';
 import { ArrowUpRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 
-export function WelcomeState({ disabled, onStart }: { disabled: boolean; onStart: () => void }) {
+export function WelcomeState({ language, disabled, onStart }: { language: Language; disabled: boolean; onStart: () => void }) {
 	return (
 		<section className="space-y-7 py-8">
 			<div className="space-y-3">
 				<p className="text-sm text-muted-foreground">YOUR SPACE TO SPEAK</p>
 				<h1 className="text-3xl leading-tight font-medium tracking-tight sm:text-4xl">
-					영어로,
+					{languages[language].label}로,
 					<br />
 					조금씩 편하게.
 				</h1>

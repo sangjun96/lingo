@@ -1,3 +1,4 @@
+import { languages, type Language } from '../../../shared/languages';
 import { useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { BookOpen, Lightbulb, MessageCircle, RotateCcw } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -9,18 +10,18 @@ import { ExpressionCard } from './expression-card';
 import type { AudioPlayer } from './use-audio-player';
 
 export function LearningPanel({
+	language,
 	turn,
 	player,
 	recording,
 	scrollContainer,
-	onInspect,
 	onRetry,
 }: {
+	language: Language;
 	turn: Turn;
 	player: AudioPlayer;
 	recording: boolean;
 	scrollContainer: RefObject<HTMLElement | null>;
-	onInspect: () => void;
 	onRetry: () => void;
 }) {
 	const [tab, setTab] = useState('sentence');
@@ -58,7 +59,6 @@ export function LearningPanel({
 			onValueChange={(value) => {
 				positions.current[tab] = scrollContainer.current?.scrollTop || 0;
 				setTab(value);
-				onInspect();
 			}}
 			className="gap-5"
 		>
@@ -73,10 +73,11 @@ export function LearningPanel({
 					<BookOpen /> 내 표현
 				</TabsTrigger>
 			</TabsList>
-			<div onFocusCapture={onInspect} onClickCapture={onInspect}>
+			<div>
 				<TabsContent value="sentence" forceMount hidden={tab !== 'sentence'} className="space-y-4">
 					{turn.assistant && (
 						<ExpressionCard
+							language={language}
 							key={turn.assistant.id}
 							expression={turn.assistant}
 							label="AI가 한 말"
@@ -96,7 +97,7 @@ export function LearningPanel({
 					<p className="text-sm text-muted-foreground">정답은 없어요. 마음에 드는 표현을 골라 바꿔 말해 보세요.</p>
 					{notice}
 					{learning.suggestions.map((expression) => (
-						<ExpressionCard key={expression.id} expression={expression} label={expression.label} player={player} disabled={recording} />
+						<ExpressionCard language={language} key={expression.id} expression={expression} label={expression.label} player={player} disabled={recording} />
 					))}
 				</TabsContent>
 				<TabsContent value="feedback" forceMount hidden={tab !== 'feedback'} className="space-y-4">
@@ -104,7 +105,7 @@ export function LearningPanel({
 						<Card className="bg-muted/40 shadow-none">
 							<CardContent className="space-y-2">
 								<p className="text-xs text-muted-foreground">내가 한 말{turn.source === 'audio' ? ' · 음성 인식 결과' : ''}</p>
-								<p lang="en" className="leading-relaxed break-words">
+								<p lang={languages[language].tag} className="leading-relaxed break-words">
 									{turn.userText}
 								</p>
 							</CardContent>
@@ -117,6 +118,7 @@ export function LearningPanel({
 							{notice}
 							{learning.feedback?.improved && (
 								<ExpressionCard
+									language={language}
 									key={learning.feedback.improved.id}
 									expression={learning.feedback.improved}
 									label="이렇게 말해볼 수 있어요"

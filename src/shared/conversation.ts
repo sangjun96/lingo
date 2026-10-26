@@ -1,3 +1,5 @@
+import type { Language } from './languages';
+
 export type Expression = {
 	id: string;
 	text: string;
@@ -25,6 +27,7 @@ export type Turn = {
 };
 
 export type ConversationState = {
+	language: Language;
 	revision: number;
 	phase: 'idle' | 'transcribing' | 'thinking';
 	activeTurnId: string | null;
@@ -32,6 +35,7 @@ export type ConversationState = {
 };
 
 export const initialConversation: ConversationState = {
+	language: 'en',
 	revision: 0,
 	phase: 'idle',
 	activeTurnId: null,

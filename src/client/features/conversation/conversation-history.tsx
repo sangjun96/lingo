@@ -1,9 +1,10 @@
+import { languages, type Language } from '../../../shared/languages';
 import { History } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import type { Turn } from '../../../shared/conversation';
 
-export function ConversationHistory({ turns, onSelect, disabled }: { turns: Turn[]; onSelect: (id: string) => void; disabled: boolean }) {
+export function ConversationHistory({ language, turns, onSelect, disabled }: { language: Language; turns: Turn[]; onSelect: (id: string) => void; disabled: boolean }) {
 	return (
 		<Sheet>
 			<SheetTrigger asChild>
@@ -22,7 +23,7 @@ export function ConversationHistory({ turns, onSelect, disabled }: { turns: Turn
 						<div key={turn.id} className="space-y-2 border-b pb-5">
 							<p className="text-xs text-muted-foreground">{String(index + 1).padStart(2, '0')}</p>
 							{turn.userText && (
-								<p lang="en" className="rounded-lg bg-muted p-3 text-sm leading-relaxed break-words">
+								<p lang={languages[language].tag} className="rounded-lg bg-muted p-3 text-sm leading-relaxed break-words">
 									{turn.userText}
 								</p>
 							)}
@@ -33,7 +34,7 @@ export function ConversationHistory({ turns, onSelect, disabled }: { turns: Turn
 										className="h-auto w-full justify-start p-3 text-left whitespace-normal"
 										onClick={() => onSelect(turn.id)}
 									>
-										<span lang="en" className="leading-relaxed break-words">
+										<span lang={languages[language].tag} className="leading-relaxed break-words">
 											{turn.assistant.text}
 										</span>
 									</Button>

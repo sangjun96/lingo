@@ -1,3 +1,4 @@
+import type { Language } from '../../../shared/languages';
 import type { ConversationState } from '../../../shared/conversation';
 
 export async function readResponse<T>(response: Response): Promise<T> {
@@ -8,17 +9,19 @@ export async function readResponse<T>(response: Response): Promise<T> {
 	return response.json() as Promise<T>;
 }
 
-export async function submitTurn(base: string, id: string, replyTo: string | null, input: Blob | null) {
-	const headers: Record<string, string> = { 'X-Request-Id': id };
+export async function submitTurn(base: string, id: string, replyTo: string | null, input: Blob | null, language: Language = 'en') {
+	const headers: Record<string, string> = { 'X-Request-Id': id, 'X-Language': language };
 	if (replyTo) headers['X-Reply-To'] = replyTo;
 	headers['Content-Type'] = input instanceof Blob ? input.type : 'application/json';
-	return readResponse<ConversationState>(
-		await fetch(`${base}/turns`, {
-			method: 'POST',
-			headers,
-			body: input instanceof Blob ? input : JSON.stringify({ text: null }),
-		}),
-	);
+	const started = performance.now();
+	const response = await fetch(`${base}/turns`, {
+		method: 'POST',
+		headers,
+		body: input instanceof Blob ? input : JSON.stringify({ text: null }),
+	});
+	const state = await readResponse<ConversationState>(response);
+	console.info(JSON.stringify({ event: 'latency', stage: 'upload_accepted', turnId: id, ms: Math.round(performance.now() - started) }));
+	return state;
 }
 
 export function loadSessionId(userId: string) {

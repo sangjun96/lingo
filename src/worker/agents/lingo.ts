@@ -1,10 +1,12 @@
+import { DEFAULT_LANGUAGE } from '../../shared/languages';
 import { Agent, type Connection, type FiberRecoveryContext } from 'agents';
 import { initialConversation, MAX_TURNS, pendingLearning, type ConversationState, type Turn } from '../../shared/conversation';
 import { readTurnInput, type TurnInput } from '../conversation/requests';
 import { createReply, transcribe } from '../services/conversation';
 import { createLearning } from '../services/learning';
 import { errorMessage, requireApiKey, ServiceError, type GeminiEnv } from '../services/gemini';
-import { synthesize } from '../services/speech';
+import { streamSpeech } from '../services/speech';
+import { measure } from '../services/timing';
 import { decodeBase64, encodeBase64 } from '../services/encoding';
 import { and, eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/durable-sqlite';
@@ -40,8 +42,7 @@ export class LingoAgent extends Agent<Env & GeminiEnv, ConversationState> {
 			}
 			const audio = path.match(/\/audio\/([a-zA-Z0-9-]+)$/);
 			if (request.method === 'GET' && audio) {
-				const bytes = await this.getAudio(audio[1]);
-				return new Response(bytes, { headers: { 'Content-Type': 'audio/wav', 'Cache-Control': 'private, max-age=86400' } });
+				return await this.getAudio(audio[1]);
 			}
 			return Response.json({ error: 'Not found' }, { status: 404 });
 		} catch (error) {
@@ -66,6 +67,9 @@ export class LingoAgent extends Agent<Env & GeminiEnv, ConversationState> {
 	private acceptTurn(input: TurnInput) {
 		// Idempotency is checked before the busy/stale-turn guards for safe reconnects.
 		if (this.state.turns.some((turn) => turn.id === input.id)) return;
+		const language = input.language ?? this.state.language ?? DEFAULT_LANGUAGE;
+		if (this.state.turns.length && language !== (this.state.language ?? DEFAULT_LANGUAGE))
+			throw new ServiceError('언어를 바꾸려면 새 대화를 시작해 주세요.', 409);
 		if (this.state.phase !== 'idle') throw new ServiceError('이전 답변을 준비하고 있어요.', 409);
 		if (this.state.turns.length >= MAX_TURNS)
 			throw new ServiceError('새 대화를 시작해 주세요. 한 대화에는 최대 40턴까지 담을 수 있어요.', 409);
@@ -74,6 +78,7 @@ export class LingoAgent extends Agent<Env & GeminiEnv, ConversationState> {
 		if (latest && ((!latest.assistant && !latest.error) || !input.audio))
 			throw new ServiceError('녹음해 주세요.', 400);
 		this.publish({
+			language,
 			phase: input.audio ? 'transcribing' : 'thinking',
 			activeTurnId: input.id,
 			turns: [
@@ -116,7 +121,9 @@ export class LingoAgent extends Agent<Env & GeminiEnv, ConversationState> {
 		this.runningJobs.add(key);
 		return this.runFiber(job.kind, async (context) => {
 			context.stash(job);
-			await this.execute(job);
+			await measure(job.kind === 'turn' ? 'turn_total' : 'learning_total', () => this.execute(job), {
+				turnId: job.kind === 'turn' ? job.input.id : job.turnId,
+			});
 		})
 			.catch((error: unknown) => {
 				const id = job.kind === 'turn' ? job.input.id : job.turnId;
@@ -140,7 +147,7 @@ export class LingoAgent extends Agent<Env & GeminiEnv, ConversationState> {
 		let turn = this.turn(id);
 		if (job.kind === 'learning') {
 			if (turn.learning.status === 'ready') return;
-			const result = await createLearning(this.env, turn);
+			const result = await createLearning(this.env, turn, this.state.language ?? DEFAULT_LANGUAGE);
 			this.updateTurn(id, {
 				assistant: { ...turn.assistant!, translation: result.translation, explanation: result.explanation },
 				learning: result.learning,
@@ -149,9 +156,9 @@ export class LingoAgent extends Agent<Env & GeminiEnv, ConversationState> {
 		}
 		if (job.input.audio && !turn.recording) {
 			const recording = { key: this.audioKey('recordings', id), mimeType: job.input.audio.mimeType };
-			await this.env.AUDIO_BUCKET.put(recording.key, decodeBase64(job.input.audio.data), {
+			await measure('recording_put', () => this.env.AUDIO_BUCKET.put(recording.key, decodeBase64(job.input.audio!.data), {
 				httpMetadata: { contentType: recording.mimeType },
-			});
+			}), { turnId: id });
 			this.updateTurn(id, { recording });
 			turn = this.turn(id);
 		}
@@ -160,20 +167,36 @@ export class LingoAgent extends Agent<Env & GeminiEnv, ConversationState> {
 			this.stash({ kind: 'turn', input: { ...job.input, audio: undefined, text: turn.userText } });
 		}
 		if (turn.recording && !turn.userText) {
-			const audio = await this.env.AUDIO_BUCKET.get(turn.recording.key);
-			if (!audio) throw new ServiceError('저장된 원본 음성을 찾지 못했어요. 다시 녹음해 주세요.', 404);
-			const userText = await transcribe(this.env, encodeBase64(new Uint8Array(await audio.arrayBuffer())), turn.recording.mimeType);
+			let data = job.input.audio?.data;
+			if (!data) {
+				// Only recovery/retries need to read the durable original back from R2.
+				data = await measure('recording_get', async () => {
+					const audio = await this.env.AUDIO_BUCKET.get(turn.recording!.key);
+					if (!audio) throw new ServiceError('저장된 원본 음성을 찾지 못했어요. 다시 녹음해 주세요.', 404);
+					return encodeBase64(new Uint8Array(await audio.arrayBuffer()));
+				}, { turnId: id });
+			}
+			const userText = await transcribe(this.env, data, turn.recording.mimeType, this.state.language ?? DEFAULT_LANGUAGE);
 			this.updateTurn(id, { userText });
 			this.stash({ kind: 'turn', input: { ...job.input, audio: undefined, text: userText } });
 			this.publish({ phase: 'thinking' });
 			turn = this.turn(id);
 		}
-		if (!turn.assistant) this.updateTurn(id, { assistant: await createReply(this.env, this.state.turns, turn) });
+		if (!turn.assistant) {
+			let lastSent = -Infinity;
+			this.updateTurn(id, { assistant: await createReply(this.env, this.state.turns, turn, (text) => {
+				const now = performance.now();
+				if (now - lastSent < 80) return;
+				lastSent = now;
+				// Transient deltas never write SQLite or resend the full conversation state.
+				this.broadcast(JSON.stringify({ type: 'reply_partial', turnId: id, text }));
+			}, this.state.language ?? DEFAULT_LANGUAGE) });
+		}
 		if (this.state.activeTurnId === id) this.publish({ phase: 'idle', activeTurnId: null });
 		if (this.turn(id).learning.status === 'pending') this.launch({ kind: 'learning', turnId: id });
 	}
 
-	private async getAudio(id: string): Promise<Uint8Array> {
+	private async getAudio(id: string): Promise<Response> {
 		const expressions = this.state.turns.flatMap((turn) => [
 			turn.assistant,
 			...turn.learning.suggestions,
@@ -181,25 +204,23 @@ export class LingoAgent extends Agent<Env & GeminiEnv, ConversationState> {
 		]);
 		const expression = expressions.find((item) => item?.id === id);
 		if (!expression) throw new ServiceError('재생할 문장을 찾지 못했어요.', 404);
-		const pending = this.audioRequests.get(id);
-		if (pending) return pending;
-		const request = this.loadGeneratedAudio(id, expression.text);
-		this.audioRequests.set(id, request);
-		try {
-			return await request;
-		} finally {
-			this.audioRequests.delete(id);
-		}
+		return this.loadGeneratedAudio(id, expression.text);
 	}
 
 	private audioKey(kind: 'recordings' | 'generated', id: string) {
 		return `sessions/${this.ctx.id.toString()}/${kind}/${id}`;
 	}
 
-	private async loadGeneratedAudio(id: string, text: string): Promise<Uint8Array> {
+	private wavResponse(body: BodyInit) {
+		return new Response(body, { headers: { 'Content-Type': 'audio/wav', 'Cache-Control': 'private, max-age=86400' } });
+	}
+
+	private async loadGeneratedAudio(id: string, text: string): Promise<Response> {
+		const pending = this.audioRequests.get(id);
+		if (pending) return this.wavResponse(await pending);
 		const key = this.audioKey('generated', id);
-		const cached = await this.env.AUDIO_BUCKET.get(key);
-		if (cached) return new Uint8Array(await cached.arrayBuffer());
+		const cached = await measure('audio_cache_get', () => this.env.AUDIO_BUCKET.get(key));
+		if (cached) return this.wavResponse(cached.body);
 		// Copy existing SQLite audio on first playback without regenerating or deleting it.
 		const db = drizzle(this.ctx.storage);
 		const [legacyTable] = await db
@@ -210,8 +231,19 @@ export class LingoAgent extends Agent<Env & GeminiEnv, ConversationState> {
 		const legacy = legacyTable
 			? await db.select({ audio: audioCache.audio }).from(audioCache).where(eq(audioCache.id, id)).get()
 			: undefined;
-		const bytes = legacy ? new Uint8Array(legacy.audio) : await synthesize(this.env, text);
-		await this.env.AUDIO_BUCKET.put(key, bytes, { httpMetadata: { contentType: 'audio/wav' } });
-		return bytes;
+		// Another request may have started generation while cache lookups were awaiting I/O.
+		const concurrent = this.audioRequests.get(id);
+		if (concurrent) return this.wavResponse(await concurrent);
+		const speech = legacy ? null : streamSpeech(this.env, text, this.state.language ?? DEFAULT_LANGUAGE);
+		const complete = speech?.complete ?? Promise.resolve(new Uint8Array(legacy!.audio));
+		this.audioRequests.set(id, complete);
+		// Keep generation and persistence alive even if playback is stopped or the client disconnects.
+		this.ctx.waitUntil(complete
+			.then((bytes) => measure('audio_cache_put', () => this.env.AUDIO_BUCKET.put(key, bytes, { httpMetadata: { contentType: 'audio/wav' } })))
+			.catch((error: unknown) => console.error(JSON.stringify({ event: 'audio_cache_error', expressionId: id, error: errorMessage(error) })))
+			.finally(() => this.audioRequests.delete(id)));
+		return speech
+			? new Response(speech.stream, { headers: { 'Content-Type': 'audio/pcm;rate=24000', 'Cache-Control': 'no-store' } })
+			: this.wavResponse(await complete);
 	}
 }

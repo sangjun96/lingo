@@ -1,3 +1,4 @@
+import { DEFAULT_LANGUAGE, isLanguage, languages, type Language } from '../../../shared/languages';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowDown, LoaderCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -15,16 +16,27 @@ import { LearningPanel } from './learning-panel';
 export function ConversationPage({ sessionId, onNew, onSignOut }: { sessionId: string; onNew: () => void; onSignOut: () => void }) {
 	const conversation = useConversation(sessionId);
 	const { state, connected, loaded, submitting } = conversation;
+	const [selectedLanguage, setSelectedLanguage] = useState<Language>(() => {
+		try {
+			const saved = localStorage.getItem('lingo-language');
+			return isLanguage(saved) ? saved : DEFAULT_LANGUAGE;
+		} catch { return DEFAULT_LANGUAGE; }
+	});
+	const language = state.turns.length ? state.language : selectedLanguage;
+	const languageInfo = languages[language];
 	const player = useAudioPlayer(conversation.base);
 	const [viewedId, setViewedId] = useState<string | null>(null);
 	const autoplay = useRef<string | null>(null);
 	const content = useRef<HTMLElement | null>(null);
+	const latency = useRef<{ id: string; started: number; text: boolean; reply: boolean; audio: boolean } | null>(null);
 	const send = async (input: Blob | null) => {
 		player.stop();
+		void player.unlock().catch(() => {});
 		const id = crypto.randomUUID();
+		latency.current = { id, started: performance.now(), text: false, reply: false, audio: false };
 		autoplay.current = id;
 		setViewedId(null);
-		const accepted = await conversation.send(input, id);
+		const accepted = await conversation.send(input, id, language);
 		if (!accepted) autoplay.current = null;
 		return !!accepted;
 	};
@@ -41,11 +53,28 @@ export function ConversationPage({ sessionId, onNew, onSignOut }: { sessionId: s
 	const disabled = !loaded || !connected || busy || exhausted;
 
 	useEffect(() => {
+		setViewedId(null);
+	}, [latestReply?.id]);
+
+	useEffect(() => {
 		if (latest?.assistant && autoplay.current === latest.id) {
 			autoplay.current = null;
 			void player.play(latest.assistant.id);
 		}
 	}, [latest?.id, latest?.assistant?.id, player.play]);
+
+	useEffect(() => {
+		const current = latency.current;
+		if (!current || latest?.id !== current.id) return;
+		const mark = (key: 'text' | 'reply' | 'audio', stage: string, ready: boolean) => {
+			if (!ready || current[key]) return;
+			current[key] = true;
+			console.info(JSON.stringify({ event: 'latency', stage, turnId: current.id, ms: Math.round(performance.now() - current.started) }));
+		};
+		mark('text', 'turn_first_text', !!conversation.partial || !!latest.assistant);
+		mark('reply', 'turn_reply_complete', !!latest.assistant);
+		mark('audio', 'turn_first_audio', player.playingId === `${current.id}-assistant` && !player.loading);
+	}, [conversation.partial, latest, player.playingId, player.loading]);
 
 	let status = connected ? '편하게 이야기해요' : '다시 연결하고 있어요';
 	if (player.playingId) status = player.loading ? '음성 준비 중' : 'AI 음성 재생 중';
@@ -57,6 +86,7 @@ export function ConversationPage({ sessionId, onNew, onSignOut }: { sessionId: s
 		<div className="flex h-dvh flex-col overflow-hidden bg-background">
 			<ConversationHeader
 				turns={state.turns}
+				language={language}
 				recording={recording}
 				busy={busy}
 				onNew={onNew}
@@ -72,7 +102,24 @@ export function ConversationPage({ sessionId, onNew, onSignOut }: { sessionId: s
 						<span className={`size-1.5 rounded-full ${recording ? 'bg-red-500' : 'bg-emerald-600'}`} />
 						{status}
 					</Badge>
-					<span className="text-xs text-muted-foreground">EN ↔ 한국어</span>
+					<span className="text-xs text-muted-foreground">{languageInfo.badge} ↔ 한국어</span>
+				</div>
+				<div className="space-y-2">
+					<label htmlFor="learning-language" className="text-sm font-medium">학습 언어</label>
+					<select
+						id="learning-language"
+						value={language}
+						disabled={!loaded || !connected || busy || recording || state.turns.length > 0 || conversation.canRetrySend}
+						onChange={(event) => {
+							if (!isLanguage(event.target.value)) return;
+							setSelectedLanguage(event.target.value);
+							try { localStorage.setItem('lingo-language', event.target.value); } catch { /* The selection still works in this tab. */ }
+						}}
+						className="min-h-11 w-full rounded-md border bg-background px-3 text-sm disabled:opacity-60"
+					>
+						{Object.entries(languages).map(([code, item]) => <option key={code} value={code}>{item.label}</option>)}
+					</select>
+					{state.turns.length > 0 && <p className="text-xs text-muted-foreground">언어를 바꾸려면 새 대화를 시작해 주세요.</p>}
 				</div>
 				<ConversationNotices
 					error={error}
@@ -87,12 +134,17 @@ export function ConversationPage({ sessionId, onNew, onSignOut }: { sessionId: s
 						player.clearError();
 					}}
 				/>
-				{!latestReply && !busy && !latest?.error && <WelcomeState disabled={disabled || recording} onStart={() => void send(null)} />}
+				{!latestReply && !busy && !latest?.error && <WelcomeState language={language} disabled={disabled || recording} onStart={() => void send(null)} />}
 				{busy && (
 					<div role="status" className="flex items-center gap-3 rounded-xl bg-muted/50 p-4 text-sm text-muted-foreground">
 						<LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" />
 						{state.phase === 'transcribing' ? '방금 한 말을 확인하고 있어요.' : '다음 이야기를 준비하고 있어요.'}
 					</div>
+				)}
+				{conversation.partial && (
+					<p lang={languageInfo.tag} aria-busy="true" className="text-xl leading-relaxed font-medium break-words sm:text-2xl">
+						{conversation.partial}
+					</p>
 				)}
 				{viewed?.assistant && (
 					<>
@@ -105,16 +157,16 @@ export function ConversationPage({ sessionId, onNew, onSignOut }: { sessionId: s
 							<p className="text-xs text-muted-foreground">
 								{viewed.id !== latestReply?.id ? '이전 대화를 살펴보고 있어요' : '지금 이어갈 이야기'}
 							</p>
-							<p lang="en" className="text-xl leading-relaxed font-medium break-words sm:text-2xl">
+							<p lang={languageInfo.tag} className="text-xl leading-relaxed font-medium break-words sm:text-2xl">
 								{viewed.assistant.text}
 							</p>
 						</div>
 						<LearningPanel
+							language={language}
 							turn={viewed}
 							player={player}
 							recording={recording}
 							scrollContainer={content}
-							onInspect={() => setViewedId(viewed.id)}
 							onRetry={() => void conversation.retry('learning', viewed.id)}
 						/>
 					</>
@@ -131,6 +183,7 @@ export function ConversationPage({ sessionId, onNew, onSignOut }: { sessionId: s
 				busy={busy}
 				onRecord={() => {
 					player.stop();
+					void player.unlock().catch(() => {});
 					void recorder.start();
 				}}
 			/>

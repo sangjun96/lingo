@@ -6,6 +6,7 @@
     "dev": "cf dev",
     "build": "bun run typecheck && cf build",
     "preview": "vite preview",
+    "test": "vitest run",
     "deploy": "bun run typecheck && cf deploy",
     "account:create:local": "bun scripts/create-account.ts local",
     "account:create:remote": "bun scripts/create-account.ts remote",

@@ -1,3 +1,4 @@
+import { languages, type Language } from '../../../shared/languages';
 import { LoaderCircle, Square, Volume2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -6,12 +7,14 @@ import type { Expression } from '../../../shared/conversation';
 import type { AudioPlayer } from './use-audio-player';
 
 export function ExpressionCard({
+	language,
 	expression,
 	label,
 	player,
 	disabled = false,
 	translationPending = false,
 }: {
+	language: Language;
 	expression: Expression;
 	label?: string;
 	player: AudioPlayer;
@@ -23,7 +26,7 @@ export function ExpressionCard({
 		<Card className="shadow-none">
 			<CardContent className="space-y-3">
 				{label && <p className="text-xs font-medium text-muted-foreground">{label}</p>}
-				<p lang="en" className="text-lg leading-relaxed font-medium break-words">
+				<p lang={languages[language].tag} className="text-lg leading-relaxed font-medium break-words">
 					{expression.text}
 				</p>
 				{expression.translation ? (

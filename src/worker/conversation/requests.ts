@@ -1,8 +1,9 @@
+import { isLanguage, type Language } from '../../shared/languages';
 import { encodeBase64 } from '../services/encoding';
 import { MAX_AUDIO_BYTES } from '../../shared/conversation';
 import { ServiceError } from '../services/gemini';
 
-export type TurnInput = { id: string; replyTo: string | null; text: string | null; audio?: { data: string; mimeType: string } };
+export type TurnInput = { id: string; replyTo: string | null; text: string | null; language?: Language; audio?: { data: string; mimeType: string } };
 
 export async function limitedBody(request: Request, limit: number) {
 	if (!request.body) throw new ServiceError('입력이 비어 있어요.', 400);
@@ -32,6 +33,10 @@ export async function limitedBody(request: Request, limit: number) {
 export async function readTurnInput(request: Request): Promise<TurnInput> {
 	const id = request.headers.get('X-Request-Id');
 	if (!id || !/^[a-zA-Z0-9-]{8,64}$/.test(id)) throw new ServiceError('요청 ID가 올바르지 않아요.', 400);
+	const selectedLanguage = request.headers.get('X-Language');
+	if (selectedLanguage !== null && !isLanguage(selectedLanguage))
+		throw new ServiceError('지원하지 않는 언어예요.', 400);
+	const language = selectedLanguage === null ? undefined : selectedLanguage as Language;
 	const replyTo = request.headers.get('X-Reply-To') || null;
 	const contentType = request.headers.get('Content-Type')?.split(';')[0] || '';
 	if (contentType === 'application/json') {
@@ -44,10 +49,10 @@ export async function readTurnInput(request: Request): Promise<TurnInput> {
 		}
 		if (!body || typeof body !== 'object' || !('text' in body) || body.text !== null)
 			throw new ServiceError('대화를 시작하려면 올바른 요청을 보내 주세요.', 400);
-		return { id, replyTo, text: null };
+		return { id, replyTo, text: null, language };
 	}
 	const mimeType = contentType === 'audio/mp4' ? 'audio/m4a' : contentType;
 	if (!['audio/webm', 'audio/ogg', 'audio/wav', 'audio/m4a', 'audio/mpeg'].includes(mimeType))
 		throw new ServiceError('지원하지 않는 녹음 형식이에요.', 415);
-	return { id, replyTo, text: null, audio: { data: encodeBase64(await limitedBody(request, MAX_AUDIO_BYTES)), mimeType } };
+	return { id, replyTo, text: null, language, audio: { data: encodeBase64(await limitedBody(request, MAX_AUDIO_BYTES)), mimeType } };
 }

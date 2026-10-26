@@ -1,9 +1,11 @@
+import type { Language } from '../../../shared/languages';
 import { AudioLines, LogOut, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { Turn } from '../../../shared/conversation';
 import { ConversationHistory } from './conversation-history';
 
 export function ConversationHeader({
+	language,
 	turns,
 	recording,
 	busy,
@@ -11,6 +13,7 @@ export function ConversationHeader({
 	onNew,
 	onSignOut,
 }: {
+	language: Language;
 	turns: Turn[];
 	recording: boolean;
 	busy: boolean;
@@ -28,7 +31,7 @@ export function ConversationHeader({
 					</span>
 				</div>
 				<div className="flex gap-1">
-					<ConversationHistory turns={turns} disabled={recording} onSelect={onSelect} />
+					<ConversationHistory language={language} turns={turns} disabled={recording} onSelect={onSelect} />
 					<Button variant="outline" className="min-h-10" onClick={onNew} disabled={recording || busy}>
 						<Plus /> 새 대화
 					</Button>

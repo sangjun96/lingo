@@ -20,10 +20,16 @@ bun run account:create:local
 ```
 
 계정 생성 스크립트는 비밀번호를 해시해 `cf d1 raw`로 D1의 `user`·`account` 테이블에 직접 추가합니다. 로그인 화면에는 가입 기능이 없습니다.
-모든 Gemini 호출은 서버의 공식 `@google/genai` SDK를 사용합니다. 기본 모델은 `gemini-3.6-flash`(thinking level `LOW`),
-TTS는 `gemini-3.8-flash-lite-tts`이며 `.dev.vars`에서 모델을 변경할 수 있습니다.
+모든 Gemini 호출은 서버의 공식 `@google/genai` SDK를 사용합니다. 기본 모델은 `gemini-3.6-flash`이며,
+대화·전사·학습 자료 모두 기본 thinking `LOW`를 사용합니다.
+TTS는 `gemini-3.8-flash-lite-tts`입니다. `.dev.vars.example`의 작업별 모델·thinking 변수로 각각 변경할 수 있습니다.
+선택한 모델이 해당 thinking 설정 및 TTS PCM 스트리밍을 지원하는지 확인하세요.
 
 ## 대화와 학습
+
+새 대화의 **학습 언어**에서 영어, 스페인어, 중국어(표준 중국어·간체), 프랑스어, 러시아어를 선택할 수 있습니다. 선택은 브라우저에 기억되며, 대화가 시작되면 해당 대화의 언어로 저장됩니다. 언어를 바꾸려면 **새 대화**를 시작하세요. 기존 대화는 영어로 이어집니다.
+
+`src/worker/services/prompts.ts`에 언어별 대화 시작·응답·전사·학습·음성 프롬프트 세트를 준비하고, 서버가 검증한 `X-Language` 값으로 선택합니다. 번역과 해설은 한국어로 제공하며, 재시도·재접속·음성 재생에도 저장된 대화 언어를 사용합니다.
 
 - 마이크를 한 번 눌러 녹음을 시작하고 다시 누르면 전송합니다. 최대 60초 / 1 MiB이며 취소할 수 있습니다.
 - 음성을 Gemini로 전사한 뒤 AI 답변을 생성합니다. 답변은 TTS로 재생하고, 브라우저가 자동 재생을 막으면 듣기 버튼을 사용합니다.
@@ -73,7 +79,13 @@ Cloudflare Agents는 [기존 프로젝트 추가 가이드](https://developers.c
 `setState`로 대화 상태를 저장·동기화하고, 사용자 녹음 원본과 생성된 TTS 음성은 `AUDIO_BUCKET` R2 바인딩에 저장합니다.
 파일 키는 `sessions/{Durable Object ID}/recordings/{turnId}`와 `sessions/{Durable Object ID}/generated/{expressionId}`입니다.
 녹음은 전사 전에 저장하고, 턴에는 R2 키와 MIME 타입만 보관합니다. 전사가 실패하면 저장된 원본으로 다시 시도할 수 있습니다.
-TTS는 처음 재생할 때 생성·저장하며 이후에는 R2 파일을 재사용합니다. 기존 SQLite 음성 캐시는 재생 시 R2로 복사하고 기존 데이터는 유지합니다.
+TTS는 처음 재생할 때 24 kHz 모노 PCM을 스트리밍하고, 브라우저 Web Audio가 전체 다운로드 전부터 재생합니다.
+성공적으로 완료된 음성만 WAV로 변환해 R2에 저장합니다. 저장은 첫 재생을 막지 않으며, 재생 취소 후에도 완료합니다.
+이후에는 R2 파일과 브라우저의 비공개 HTTP 캐시를 재사용합니다. 기존 SQLite 음성 캐시는 재생 시 R2로 복사하고 기존 데이터는 유지합니다.
+일반 전사는 업로드한 메모리의 음성을 재사용하고, 복구·재시도 시에만 R2 원본을 읽습니다.
+대화 답변은 WebSocket의 임시 메시지로 먼저 표시하며, 완성된 답변만 SQLite 상태에 저장합니다.
+학습 자료는 계속 별도 생성합니다. 초기 상태는 WebSocket으로 받고 HTTP 조회는 지연된 폴백으로만 실행합니다.
+기존 대화의 소유권은 읽기만 하며, 새로운 대화에만 등록을 시도합니다. 세션 검사는 모든 요청에서 유지합니다.
 클라이언트의 직접 상태 변경은 거부합니다. `runFiber`에 작업과 체크포인트를 기록하고,
 중단된 작업은 `onFiberRecovered`에서 다시 시작합니다. R2 저장 후에는 체크포인트에서 원본 음성을 제거하고, 복구 시 턴에 저장된 키로 읽습니다.
 외부 모델 요청이 완료된 직후 프로세스가 중단되면 해당 단계의 API가 재호출될 수 있습니다.
@@ -105,6 +117,8 @@ bun run deploy
 bun run account:create:remote
 ```
 
+계정 생성 CLI는 `BETTER_AUTH_SECRET`을 사용하지 않습니다. Better Auth 기본 scrypt 방식으로 비밀번호를 해시해 원격 D1에 저장하므로, 로컬과 배포 환경의 시크릿이 달라도 생성된 계정의 비밀번호 검증에는 영향을 주지 않습니다. 배포 환경에는 유효한 시크릿이 필요하며, 시크릿을 변경하면 기존 로그인 쿠키가 무효화되어 다시 로그인해야 할 수 있습니다. CLI와 배포 Worker가 같은 `AUTH_DB`를 사용하는지 확인하세요.
+
 새 스키마 변경은 `bun run db:generate`로 Drizzle 마이그레이션을 만든 뒤 `bun run db:migrate:local` 또는 `bun run db:migrate:remote`로 적용합니다.
 
 ## UI 컴포넌트
@@ -123,6 +137,7 @@ bunx shadcn@latest add dialog
 ## 검증
 
 ```sh
+bun run test
 bun run cf-typegen
 bun run build
 bun run deploy -- --dry-run
@@ -131,7 +146,17 @@ bun run deploy -- --dry-run
 환경 변수나 바인딩을 변경하면 타입을 다시 생성합니다.
 dry run은 빌드와 패키징만 검증하며 실제 배포를 수행하지 않습니다.
 테스트는 SDK의 네트워크 요청을 모킹하며 실제 Gemini 호출은 하지 않습니다.
-대화·학습 자료 생성, 중복 및 동시 요청, 전사 실패 복구, SQLite 상태 저장, R2 원본·TTS 보관 및 재사용, 입력 검증을 확인합니다.
+작업별 모델 설정, 답변 스트리밍과 잘린 응답 거부, PCM 바이트 경계 처리, WAV 변환,
+TTS 완료 및 실패 처리를 확인합니다. 실제 브라우저의 자동 재생 정책과 원격 API 지연은 별도 확인이 필요합니다.
+
+### 응답 시간 관측
+
+서버는 `event: latency` JSON 로그로 인증·소유권 조회, R2 읽기/쓰기, 전사, 답변, 첫 토큰,
+학습 자료, TTS 첫 청크 및 완료 시간을 기록합니다. 프롬프트·녹음·인증 정보는 기록하지 않습니다.
+브라우저 콘솔에는 `upload_accepted`, `turn_first_text`, `turn_reply_complete`, `turn_first_audio`,
+`audio_first_playback` 시간을 기록합니다. `turn_*`은 녹음 종료 후 전송 시작 시점 기준이며,
+`audio_first_playback`은 오디오 요청 시작부터 첫 재생 예약까지의 시간입니다.
+운영 로그의 단계별 `ms`로 p50/p95를 비교하세요. 개선율은 실제 배포 환경에서 측정해야 합니다.
 
 ## Cloudflare 계정 연결 및 배포
 
