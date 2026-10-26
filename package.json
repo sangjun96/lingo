@@ -4,12 +4,15 @@
   "private": true,
   "scripts": {
     "dev": "cf dev",
-    "build": "npm run typecheck && cf build",
+    "build": "bun run typecheck && cf build",
     "preview": "vite preview",
-    "deploy": "npm run typecheck && cf deploy",
-    "account:create": "node scripts/create-account.ts",
+    "deploy": "bun run typecheck && cf deploy",
+    "account:create:local": "bun scripts/create-account.ts local",
+    "account:create:remote": "bun scripts/create-account.ts remote",
     "db:generate": "drizzle-kit generate",
-    "typecheck": "npm run cf-typegen && tsc -p tsconfig.json && tsc -p tsconfig.app.json",
+    "db:migrate:local": "cf d1 migrations apply 00000000-0000-4000-8000-000000000001 --local --mode development --persist-to .cloudflare/state",
+    "db:migrate:remote": "cf d1 migrations apply ${AUTH_DB_ID:?Set AUTH_DB_ID first.}",
+    "typecheck": "bun run cf-typegen && tsc -p tsconfig.json && tsc -p tsconfig.app.json",
     "cf-typegen": "cf workers types"
   },
   "devDependencies": {

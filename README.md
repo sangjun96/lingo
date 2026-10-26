@@ -15,8 +15,8 @@ bun run dev
 `openssl rand -hex 32`로 만들 수 있습니다. 로컬 D1 마이그레이션을 적용하고 계정을 만든 뒤 로그인합니다.
 
 ```sh
-cf d1 migrations apply 00000000-0000-0000-0000-000000000001 --local --mode development --persist-to .cloudflare/state
-bun run account:create local
+bun run db:migrate:local
+bun run account:create:local
 ```
 
 계정 생성 스크립트는 비밀번호를 해시해 `cf d1 raw`로 D1의 `user`·`account` 테이블에 직접 추가합니다. 로그인 화면에는 가입 기능이 없습니다.
@@ -49,7 +49,7 @@ TTS는 `gemini-3.8-flash-lite-tts`이며 `.dev.vars`에서 모델을 변경할 �
 - `src/client/components/ui/`: shadcn/ui 컴포넌트 소스.
 - `src/client/style.css`: Tailwind CSS 4와 shadcn/ui 테마.
 - `cloudflare.config.ts`: `cf` CLI용 Worker, SPA, Agents 바인딩 및 관측 설정.
-- `.cloudflare/types/index.d.ts`: `npm run cf-typegen` 또는 `cf dev`/`cf build`가 생성하는 Workers 타입.
+- `.cloudflare/types/index.d.ts`: `bun run cf-typegen` 또는 `cf dev`/`cf build`가 생성하는 Workers 타입.
 
 | API | 동작 |
 | --- | --- |
@@ -94,7 +94,7 @@ Better Auth는 이메일·비밀번호 세션을 `lingo-auth` D1에 저장하고
 ```sh
 cf d1 create --name lingo-auth
 export AUTH_DB_ID="<database_id>"
-cf d1 migrations apply "$AUTH_DB_ID"
+bun run db:migrate:remote
 # 같은 터미널에서 배포
 bun run deploy
 ```
@@ -103,10 +103,10 @@ bun run deploy
 그 다음 같은 터미널의 `AUTH_DB_ID`로 원격 D1에 계정을 추가합니다.
 
 ```sh
-bun run account:create remote
+bun run account:create:remote
 ```
 
-새 스키마 변경은 `bun run db:generate`로 Drizzle 마이그레이션을 만든 뒤 로컬 또는 원격 D1에 적용합니다.
+새 스키마 변경은 `bun run db:generate`로 Drizzle 마이그레이션을 만든 뒤 `bun run db:migrate:local` 또는 `bun run db:migrate:remote`로 적용합니다.
 
 ## UI 컴포넌트
 
@@ -124,9 +124,9 @@ bunx shadcn@latest add dialog
 ## 검증
 
 ```sh
-npm run cf-typegen
-npm run build
-npm run deploy -- --dry-run
+bun run cf-typegen
+bun run build
+bun run deploy -- --dry-run
 ```
 
 환경 변수나 바인딩을 변경하면 타입을 다시 생성합니다.

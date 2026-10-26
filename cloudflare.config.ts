@@ -1,7 +1,7 @@
 import { bindings, defineConfig, exports } from "cf/config";
 import * as entrypoint from "./src/worker/index.ts" with { type: "cf-worker" };
 
-const localAuthDbId = "00000000-0000-0000-0000-000000000001";
+const localAuthDbId = "00000000-0000-4000-8000-000000000001";
 
 export default defineConfig(({ mode }) => ({
 	worker: {

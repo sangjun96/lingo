@@ -4,10 +4,10 @@ import { hashPassword } from 'better-auth/crypto';
 
 const target = process.argv[2];
 if (target !== 'local' && target !== 'remote') {
-	throw new Error('Usage: bun run account:create local|remote');
+	throw new Error('Usage: bun run account:create:local|account:create:remote');
 }
 
-const localAuthDbId = '00000000-0000-0000-0000-000000000001';
+const localAuthDbId = '00000000-0000-4000-8000-000000000001';
 const databaseId = target === 'local' ? localAuthDbId : process.env.AUTH_DB_ID;
 if (!databaseId) throw new Error('Set AUTH_DB_ID first.');
 
