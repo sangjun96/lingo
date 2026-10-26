@@ -227,7 +227,7 @@ describe('Conversation Agent', () => {
 		expect((await state(session)).turns[0].assistant?.text).toBeTruthy();
 		expect((await state(session)).phase).toBe('idle');
 		google.mockImplementationOnce(async () => textResponse(JSON.stringify(learningResponse)));
-		await env.LingoAgent.getByName(session).retryLearning(id);
+		await exports.LingoAgent.getByName(session).retryLearning(id);
 		await ready(session);
 		expect(google).toHaveBeenCalledTimes(3);
 	});
@@ -246,7 +246,7 @@ describe('Conversation Agent', () => {
 		expect(await env.AUDIO_BUCKET.head(recording.key)).not.toBeNull();
 		google.mockRestore();
 		const retryGoogle = mockGoogle();
-		await env.LingoAgent.getByName(session).retryTurn(first);
+		await exports.LingoAgent.getByName(session).retryTurn(first);
 		const current = await ready(session);
 		expect(current.turns[0].recording).toEqual(recording);
 		expect(current.turns[0].userText).toBe('I go shopping yesterday.');
@@ -268,7 +268,7 @@ describe('Conversation Agent', () => {
 		await vi.waitFor(async () => expect((await state(session)).turns[0]?.error).toBeTruthy());
 		const recording = (await state(session)).turns[0].recording!;
 		await env.AUDIO_BUCKET.delete(recording.key);
-		await env.LingoAgent.getByName(session).retryTurn(id);
+		await exports.LingoAgent.getByName(session).retryTurn(id);
 		await vi.waitFor(async () => {
 			const current = await state(session);
 			expect(current.phase).toBe('idle');

@@ -77,7 +77,7 @@ export class LingoAgent extends Agent<Env & GeminiEnv, ConversationState> {
 				...this.state.turns,
 				{
 					id: input.id,
-					source: input.audio ? 'audio' : input.text ? 'text' : 'opening',
+					source: input.audio ? 'audio' : 'opening',
 					userText: input.text,
 					assistant: null,
 					learning: pendingLearning(),

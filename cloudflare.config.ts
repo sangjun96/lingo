@@ -1,4 +1,5 @@
 import { bindings, defineConfig, exports } from "cf/config";
+import * as entrypoint from "./src/worker/index.ts" with { type: "cf-worker" };
 
 export default defineConfig({
 	worker: {
@@ -7,7 +8,7 @@ export default defineConfig({
 		compatibilityFlags: [
 			"nodejs_compat",
 		],
-		entrypoint: "src/worker/index.ts",
+		entrypoint,
 		observability: {
 			enabled: true,
 			traces: {
