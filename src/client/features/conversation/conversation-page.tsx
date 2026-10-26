@@ -1,6 +1,6 @@
 import { DEFAULT_LANGUAGE, isLanguage, languages, type Language } from '../../../shared/languages';
 import { useEffect, useRef, useState } from 'react';
-import { ArrowDown, LoaderCircle } from 'lucide-react';
+import { ArrowDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { MAX_TURNS } from '../../../shared/conversation';
@@ -12,6 +12,8 @@ import { ConversationNotices } from './conversation-notices';
 import { WelcomeState } from './welcome-state';
 import { ConversationComposer } from './conversation-composer';
 import { LearningPanel } from './learning-panel';
+import { ConversationActivity } from './conversation-activity';
+import { useConversationActivity } from './use-conversation-activity';
 
 export function ConversationPage({ sessionId, onNew, onSignOut }: { sessionId: string; onNew: () => void; onSignOut: () => void }) {
 	const conversation = useConversation(sessionId);
@@ -45,6 +47,7 @@ export function ConversationPage({ sessionId, onNew, onSignOut }: { sessionId: s
 	});
 	const recording = recorder.status !== 'idle';
 	const busy = submitting || state.phase !== 'idle';
+	const activity = useConversationActivity({ busy, submitting, connected, state, partial: conversation.partial, error: !!conversation.error });
 	const latest = state.turns.at(-1);
 	const latestReply = state.turns.findLast((turn) => turn.assistant);
 	const viewed = state.turns.find((turn) => turn.id === viewedId) || latestReply;
@@ -135,40 +138,41 @@ export function ConversationPage({ sessionId, onNew, onSignOut }: { sessionId: s
 					}}
 				/>
 				{!latestReply && !busy && !latest?.error && <WelcomeState language={language} disabled={disabled || recording} onStart={() => void send(null)} />}
-				{busy && (
-					<div role="status" className="flex items-center gap-3 rounded-xl bg-muted/50 p-4 text-sm text-muted-foreground">
-						<LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" />
-						{state.phase === 'transcribing' ? '방금 한 말을 확인하고 있어요.' : '다음 이야기를 준비하고 있어요.'}
-					</div>
+				{(busy || latest?.error || (conversation.error && activity.elapsed !== null) || (latest && viewed?.id === latest.id)) && (
+					<ConversationActivity
+						key={state.activeTurnId ?? latest?.id ?? 'sending'}
+						stage={activity.stage}
+						elapsed={activity.elapsed}
+						turn={activity.turn}
+						busy={busy}
+						player={player}
+						userLanguage={languageInfo.tag}
+					/>
 				)}
-				{conversation.partial && (
-					<p lang={languageInfo.tag} aria-busy="true" className="text-xl leading-relaxed font-medium break-words sm:text-2xl">
-						{conversation.partial}
-					</p>
-				)}
-				{viewed?.assistant && (
+				{(conversation.partial || (!busy && viewed?.assistant)) && (
 					<>
-						{viewed.id !== latestReply?.id && (
+						{!busy && viewed?.id !== latestReply?.id && (
 							<Button variant="secondary" className="min-h-11 w-full" onClick={() => setViewedId(null)}>
 								<ArrowDown /> 새 대화 보기
 							</Button>
 						)}
 						<div className="space-y-2">
 							<p className="text-xs text-muted-foreground">
-								{viewed.id !== latestReply?.id ? '이전 대화를 살펴보고 있어요' : '지금 이어갈 이야기'}
+								{busy ? '지금 작성하고 있는 이야기' : viewed?.id !== latestReply?.id ? '이전 대화를 살펴보고 있어요' : '지금 이어갈 이야기'}
 							</p>
-							<p lang={languageInfo.tag} className="text-xl leading-relaxed font-medium break-words sm:text-2xl">
-								{viewed.assistant.text}
+							<p lang={languageInfo.tag} aria-busy={busy} className="text-xl leading-relaxed font-medium break-words sm:text-2xl">
+								{conversation.partial || viewed?.assistant?.text}
+								{busy && <span aria-hidden="true" className="activity-cursor ml-1 inline-block h-5 w-0.5 translate-y-0.5 bg-foreground/60" />}
 							</p>
 						</div>
-						<LearningPanel
+						{!busy && viewed && <LearningPanel
 							language={language}
 							turn={viewed}
 							player={player}
 							recording={recording}
 							scrollContainer={content}
 							onRetry={() => void conversation.retry('learning', viewed.id)}
-						/>
+						/>}
 					</>
 				)}
 				{exhausted && (

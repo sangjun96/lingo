@@ -5,6 +5,37 @@
 
 @custom-variant dark (&:is(.dark *));
 
+@keyframes activity-breathe {
+	0%, 100% { opacity: 0.45; }
+	50% { opacity: 1; }
+}
+
+@keyframes activity-shimmer {
+	from { background-position: 100% 0; }
+	to { background-position: -100% 0; }
+}
+
+@keyframes activity-enter {
+	from { opacity: 0; }
+	to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	.activity-card { animation: activity-enter 200ms ease-out; }
+	.activity-breathe, .activity-cursor { animation: activity-breathe 1.8s ease-in-out infinite; }
+	.activity-shimmer {
+		background-image: linear-gradient(110deg, var(--muted-foreground) 35%, var(--foreground) 50%, var(--muted-foreground) 65%);
+		background-size: 200% 100%;
+		background-clip: text;
+		color: transparent;
+		animation: activity-shimmer 2.8s linear infinite;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.activity-card [data-slot='trace-collapsible-content'] { animation: none; transition: none; }
+}
+
 :root {
 	--background: oklch(1 0 0);
 	--foreground: oklch(0.145 0 0);
