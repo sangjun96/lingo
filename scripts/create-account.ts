@@ -8,8 +8,15 @@ if (target !== 'local' && target !== 'remote') {
 }
 
 const localAuthDbId = '00000000-0000-4000-8000-000000000001';
-const databaseId = target === 'local' ? localAuthDbId : process.env.AUTH_DB_ID;
-if (!databaseId) throw new Error('Set AUTH_DB_ID first.');
+const authDbName = 'lingo-auth';
+const findRemoteAuthDbId = () => {
+	const databases: { uuid: string; name: string }[] = JSON.parse(
+		execFileSync('cf', ['d1', 'list', '--name', authDbName], { encoding: 'utf8' }),
+	);
+	return databases.find((database) => database.name === authDbName)?.uuid;
+};
+const databaseId = target === 'local' ? localAuthDbId : process.env.AUTH_DB_ID || findRemoteAuthDbId();
+if (!databaseId) throw new Error(`Remote D1 "${authDbName}" not found. Create it or set AUTH_DB_ID.`);
 
 const prompt = createInterface({ input: process.stdin, output: process.stdout, terminal: false });
 try {

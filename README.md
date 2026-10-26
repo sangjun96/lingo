@@ -88,19 +88,18 @@ Better Auth는 이메일·비밀번호 세션을 `lingo-auth` D1에 저장하고
 
 ### 계정 및 배포 DB 설정
 
-원격 D1이 없으면 Cloudflare 계정에 한 번 생성하고 출력된 ID를 배포 터미널의 `AUTH_DB_ID` 환경변수로 지정합니다.
+원격 D1이 없으면 Cloudflare 계정에 한 번 생성합니다.
 이 단계는 Cloudflare 리소스를 만들기 때문에 자동으로 실행하지 않습니다.
+원격 스크립트는 `lingo-auth` 이름으로 D1 ID를 찾으며, `AUTH_DB_ID`를 지정하면 그 값을 우선 사용합니다.
 
 ```sh
 cf d1 create --name lingo-auth
-export AUTH_DB_ID="<database_id>"
 bun run db:migrate:remote
-# 같은 터미널에서 배포
 bun run deploy
 ```
 
 배포 Worker에 `BETTER_AUTH_SECRET`을 Cloudflare secret으로 설정합니다.
-그 다음 같은 터미널의 `AUTH_DB_ID`로 원격 D1에 계정을 추가합니다.
+그 다음 원격 D1에 계정을 추가합니다.
 
 ```sh
 bun run account:create:remote

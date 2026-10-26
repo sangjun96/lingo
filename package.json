@@ -11,7 +11,7 @@
     "account:create:remote": "bun scripts/create-account.ts remote",
     "db:generate": "drizzle-kit generate",
     "db:migrate:local": "cf d1 migrations apply 00000000-0000-4000-8000-000000000001 --local --mode development --persist-to .cloudflare/state",
-    "db:migrate:remote": "cf d1 migrations apply ${AUTH_DB_ID:?Set AUTH_DB_ID first.}",
+    "db:migrate:remote": "cf d1 migrations apply ${AUTH_DB_ID:-$(cf d1 list --name lingo-auth | jq -r '.[] | select(.name==\"lingo-auth\") | .uuid')}",
     "typecheck": "bun run cf-typegen && tsc -p tsconfig.json && tsc -p tsconfig.app.json",
     "cf-typegen": "cf workers types"
   },
