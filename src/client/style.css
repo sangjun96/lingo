@@ -1,0 +1,9 @@
+:root { font-family: system-ui, sans-serif; color: #17212b; background: #f7f8fa; }
+body { margin: 0; }
+main { max-width: 640px; margin: 64px auto; padding: 24px; }
+form { display: grid; gap: 12px; }
+textarea, button { font: inherit; padding: 12px; border: 1px solid #b8c2cc; border-radius: 8px; }
+textarea { resize: vertical; }
+button { color: white; background: #254edb; cursor: pointer; }
+button:disabled { opacity: 0.6; cursor: default; }
+output { display: block; white-space: pre-wrap; margin-top: 24px; }
