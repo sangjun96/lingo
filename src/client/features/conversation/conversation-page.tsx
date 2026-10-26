@@ -12,7 +12,7 @@ import { WelcomeState } from './welcome-state';
 import { ConversationComposer } from './conversation-composer';
 import { LearningPanel } from './learning-panel';
 
-export function ConversationPage({ sessionId, onNew }: { sessionId: string; onNew: () => void }) {
+export function ConversationPage({ sessionId, onNew, onSignOut }: { sessionId: string; onNew: () => void; onSignOut: () => void }) {
 	const conversation = useConversation(sessionId);
 	const { state, connected, loaded, submitting } = conversation;
 	const player = useAudioPlayer(conversation.base);
@@ -60,6 +60,7 @@ export function ConversationPage({ sessionId, onNew }: { sessionId: string; onNe
 				recording={recording}
 				busy={busy}
 				onNew={onNew}
+				onSignOut={onSignOut}
 				onSelect={(id) => {
 					player.stop();
 					setViewedId(id);

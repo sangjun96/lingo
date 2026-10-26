@@ -1,6 +1,6 @@
 # Lingo
 
-React + Vite 프런트엔드와 Cloudflare Agents를 하나의 Cloudflare Worker에서 실행합니다.
+React + Vite 프런트엔드와 Hono 기반 서버, Cloudflare Agents를 하나의 Cloudflare Worker에서 실행합니다.
 Node.js 24 이상과 Bun을 사용합니다.
 
 ## 로컬 실행
@@ -11,8 +11,15 @@ cp .dev.vars.example .dev.vars
 bun run dev
 ```
 
-`.dev.vars`의 `GEMINI_API_KEY`에 Google AI Studio에서 발급한 키를 입력합니다.
-터미널에 표시된 주소에서 Lingo 화면을 엽니다. 키가 없어도 화면은 열리며, 대화를 요청하면 설정 안내를 표시합니다.
+`.dev.vars`에 Google AI Studio 키와 Better Auth용 비밀값을 입력합니다. `BETTER_AUTH_SECRET`은
+`openssl rand -hex 32`로 만들 수 있습니다. 로컬 D1 마이그레이션을 적용하고 계정을 만든 뒤 로그인합니다.
+
+```sh
+cf d1 migrations apply 00000000-0000-0000-0000-000000000001 --local --mode development --persist-to .cloudflare/state
+bun run account:create local
+```
+
+계정 생성 스크립트는 비밀번호를 해시해 `cf d1 raw`로 D1의 `user`·`account` 테이블에 직접 추가합니다. 로그인 화면에는 가입 기능이 없습니다.
 모든 Gemini 호출은 서버의 공식 `@google/genai` SDK를 사용합니다. 기본 모델은 `gemini-3.8-flash`,
 TTS는 `gemini-3.8-flash-lite-tts`이며 `.dev.vars`에서 모델을 변경할 수 있습니다.
 
@@ -31,8 +38,10 @@ TTS는 `gemini-3.8-flash-lite-tts`이며 `.dev.vars`에서 모델을 변경할 �
 - `src/client/`: React UI 진입점과 공용 UI 컴포넌트.
 - `src/client/features/conversation/`: 학습 탭, 문장 카드, 대화 기록, 입력 UI와 녹음·재생·Agent 연결 훅.
 - `src/shared/conversation.ts`: 클라이언트와 서버가 공유하는 대화 타입과 제한.
-- `src/worker/index.ts`: Agents 라우팅과 404 응답.
+- `src/worker/index.ts`: Hono 서버 진입점, Better Auth, 대화 소유권 검사, Agents 라우팅.
 - `src/worker/agents/lingo.ts`: Cloudflare Agents SDK의 `LingoAgent` 클래스.
+- `src/worker/db/`: Better Auth와 대화 소유권의 Drizzle 스키마 및 Agent의 기존 SQLite 캐시 스키마.
+- `scripts/create-account.ts`: 로컬 또는 원격 환경의 비공개 계정 생성 CLI.
 - `src/worker/services/`: Gen AI SDK 클라이언트, 전사·응답, 학습 자료 검증, TTS 서비스.
 - `src/worker/conversation/requests.ts`: 대화 시작 요청과 음성 입력 검증, 크기 제한.
 - `vite.config.ts`: React, Tailwind CSS, Cloudflare Vite 플러그인.
@@ -44,8 +53,10 @@ TTS는 `gemini-3.8-flash-lite-tts`이며 `.dev.vars`에서 모델을 변경할 �
 
 | API | 동작 |
 | --- | --- |
-| `GET /agents/lingo-agent/{instance}/health` | Agent 인스턴스 연결 확인, `{ "status": "ok" }` 반환 |
-| `GET /agents/lingo-agent/{instance}/state` | 저장된 세션 상태 읽기 |
+| `/api/auth/*` | Better Auth 로그인·세션 API. 이메일 가입 경로는 비활성화 |
+| `/agents/lingo-agent/{instance}/*` | 로그인 필수. 대화 인스턴스 소유 계정만 접근 가능 |
+| `GET /agents/lingo-agent/{instance}/health` | 로그인한 소유 계정의 Agent 연결 확인, `{ "status": "ok" }` 반환 |
+| `GET /agents/lingo-agent/{instance}/state` | 로그인한 소유 계정의 저장된 세션 상태 읽기 |
 | `POST /agents/lingo-agent/{instance}/turns` | 턴 접수 후 202 반환. `X-Request-Id` 필수, 후속 턴은 `X-Reply-To`에 최신 턴 ID 전달 |
 | `POST /agents/lingo-agent/{instance}/retry/turn/{turnId}` | 실패한 답변 또는 저장된 녹음 처리 재시도 |
 | `POST /agents/lingo-agent/{instance}/retry/learning/{turnId}` | 실패한 학습 자료만 다시 생성 |
@@ -71,8 +82,31 @@ TTS는 처음 재생할 때 생성·저장하며 이후에는 R2 파일을 재�
 지정한 이름의 비공개 R2 버킷(`lingo-audio`)이 필요합니다. 버킷 생성과 배포는 별도로 진행합니다.
 녹음과 TTS 파일은 자동 삭제하지 않으며, 새 대화를 시작해도 이전 세션의 파일을 보관합니다.
 
-현재 사용자 인증은 없으며 세션 ID를 아는 사람이 그 세션에 접근할 수 있습니다. 개인 로컬 사용 범위이며,
-공개 배포 전 인증·사용량 제한·대화 및 음성 보관 정책을 정해야 합니다.
+Better Auth는 이메일·비밀번호 세션을 `lingo-auth` D1에 저장하고 Drizzle ORM으로 접근합니다. 모든 Agent 요청은
+로그인 세션과 대화 소유 계정을 확인합니다. Better Auth 가입 API는 비활성화되어 있으며,
+계정은 `cf` CLI로 D1에 직접 추가합니다. 브라우저는 로그인한 사용자별로 대화 ID를 저장합니다.
+
+### 계정 및 배포 DB 설정
+
+원격 D1이 없으면 Cloudflare 계정에 한 번 생성하고 출력된 ID를 배포 터미널의 `AUTH_DB_ID` 환경변수로 지정합니다.
+이 단계는 Cloudflare 리소스를 만들기 때문에 자동으로 실행하지 않습니다.
+
+```sh
+cf d1 create --name lingo-auth
+export AUTH_DB_ID="<database_id>"
+cf d1 migrations apply "$AUTH_DB_ID"
+# 같은 터미널에서 배포
+bun run deploy
+```
+
+배포 Worker에 `BETTER_AUTH_SECRET`을 Cloudflare secret으로 설정합니다.
+그 다음 같은 터미널의 `AUTH_DB_ID`로 원격 D1에 계정을 추가합니다.
+
+```sh
+bun run account:create remote
+```
+
+새 스키마 변경은 `bun run db:generate`로 Drizzle 마이그레이션을 만든 뒤 로컬 또는 원격 D1에 적용합니다.
 
 ## UI 컴포넌트
 

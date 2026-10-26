@@ -21,20 +21,20 @@ export async function submitTurn(base: string, id: string, replyTo: string | nul
 	);
 }
 
-export function loadSessionId() {
+export function loadSessionId(userId: string) {
 	try {
-		const id = localStorage.getItem('lingo-session');
+		const id = localStorage.getItem(`lingo-session:${userId}`);
 		if (id && /^[a-f0-9-]{36}$/.test(id)) return id;
 	} catch {
 		/* Storage can be unavailable in private browsing. */
 	}
-	return newSessionId();
+	return newSessionId(userId);
 }
 
-export function newSessionId() {
+export function newSessionId(userId: string) {
 	const id = crypto.randomUUID();
 	try {
-		localStorage.setItem('lingo-session', id);
+		localStorage.setItem(`lingo-session:${userId}`, id);
 	} catch {
 		/* The session still works in this tab. */
 	}

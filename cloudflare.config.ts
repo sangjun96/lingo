@@ -1,7 +1,9 @@
 import { bindings, defineConfig, exports } from "cf/config";
 import * as entrypoint from "./src/worker/index.ts" with { type: "cf-worker" };
 
-export default defineConfig({
+const localAuthDbId = "00000000-0000-0000-0000-000000000001";
+
+export default defineConfig(({ mode }) => ({
 	worker: {
 		name: "lingo",
 		compatibilityDate: "2026-10-26",
@@ -9,6 +11,7 @@ export default defineConfig({
 			"nodejs_compat",
 		],
 		entrypoint,
+		domains: ["lingo.promptpointer.dev"],
 		observability: {
 			enabled: true,
 			traces: {
@@ -18,18 +21,19 @@ export default defineConfig({
 		},
 		assets: {
 			notFoundHandling: "single-page-application",
-			runWorkerFirst: [
-				"/api",
-				"/api/*",
-				"/agents",
-				"/agents/*",
-			],
+			runWorkerFirst: true,
 		},
 		exports: {
 			LingoAgent: exports.durableObject({ storage: "sqlite" }),
 		},
 		env: {
 			GEMINI_API_KEY: bindings.secret(),
+			BETTER_AUTH_SECRET: bindings.secret(),
+			AUTH_DB: bindings.d1({
+				name: "lingo-auth",
+				id: process.env.AUTH_DB_ID || (mode === "development" ? localAuthDbId : undefined),
+			}),
+			ASSETS: bindings.assets(),
 			AUDIO_BUCKET: bindings.r2({
 				name: "lingo-audio",
 			}),
@@ -39,4 +43,4 @@ export default defineConfig({
 			}),
 		},
 	},
-});
+}));

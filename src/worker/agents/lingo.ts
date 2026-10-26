@@ -6,6 +6,9 @@ import { createLearning } from '../services/learning';
 import { errorMessage, requireApiKey, ServiceError, type GeminiEnv } from '../services/gemini';
 import { synthesize } from '../services/speech';
 import { decodeBase64, encodeBase64 } from '../services/encoding';
+import { and, eq } from 'drizzle-orm';
+import { drizzle } from 'drizzle-orm/durable-sqlite';
+import { audioCache, sqliteMaster } from '../db/do-schema';
 
 type Job = { kind: 'turn'; input: TurnInput } | { kind: 'learning'; turnId: string };
 
@@ -198,9 +201,14 @@ export class LingoAgent extends Agent<Env & GeminiEnv, ConversationState> {
 		const cached = await this.env.AUDIO_BUCKET.get(key);
 		if (cached) return new Uint8Array(await cached.arrayBuffer());
 		// Copy existing SQLite audio on first playback without regenerating or deleting it.
-		const legacyTable = this.ctx.storage.sql.exec("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'audio_cache'").toArray();
-		const legacy = legacyTable.length
-			? this.ctx.storage.sql.exec<{ audio: ArrayBuffer }>('SELECT audio FROM audio_cache WHERE id = ?', id).toArray()[0]
+		const db = drizzle(this.ctx.storage);
+		const [legacyTable] = await db
+			.select({ name: sqliteMaster.name })
+			.from(sqliteMaster)
+			.where(and(eq(sqliteMaster.type, 'table'), eq(sqliteMaster.name, 'audio_cache')))
+			.limit(1);
+		const legacy = legacyTable
+			? await db.select({ audio: audioCache.audio }).from(audioCache).where(eq(audioCache.id, id)).get()
 			: undefined;
 		const bytes = legacy ? new Uint8Array(legacy.audio) : await synthesize(this.env, text);
 		await this.env.AUDIO_BUCKET.put(key, bytes, { httpMetadata: { contentType: 'audio/wav' } });

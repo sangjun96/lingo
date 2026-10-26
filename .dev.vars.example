@@ -1,5 +1,6 @@
 # Never commit real credentials. Copy this file to .dev.vars and fill in your key.
 GEMINI_API_KEY=
+BETTER_AUTH_SECRET=
 # Optional model overrides:
 GEMINI_MODEL=gemini-3.8-flash
 GEMINI_TTS_MODEL=gemini-3.8-flash-lite-tts

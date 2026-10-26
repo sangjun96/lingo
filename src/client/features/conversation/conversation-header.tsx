@@ -1,4 +1,4 @@
-import { AudioLines, Plus } from 'lucide-react';
+import { AudioLines, LogOut, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { Turn } from '../../../shared/conversation';
 import { ConversationHistory } from './conversation-history';
@@ -9,12 +9,14 @@ export function ConversationHeader({
 	busy,
 	onSelect,
 	onNew,
+	onSignOut,
 }: {
 	turns: Turn[];
 	recording: boolean;
 	busy: boolean;
 	onSelect: (id: string) => void;
 	onNew: () => void;
+	onSignOut: () => void;
 }) {
 	return (
 		<header className="shrink-0 border-b px-4 sm:px-8">
@@ -29,6 +31,9 @@ export function ConversationHeader({
 					<ConversationHistory turns={turns} disabled={recording} onSelect={onSelect} />
 					<Button variant="outline" className="min-h-10" onClick={onNew} disabled={recording || busy}>
 						<Plus /> 새 대화
+					</Button>
+					<Button variant="ghost" className="min-h-10" onClick={onSignOut} aria-label="로그아웃">
+						<LogOut />
 					</Button>
 				</div>
 			</div>
