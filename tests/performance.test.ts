@@ -33,6 +33,31 @@ describe('low-latency generation', () => {
 		expect(errorMessage(error)).toContain('Gemini API 키가 유효하지 않아요');
 		expect(errorMessage(Object.assign(new Error('other bad request'), { status: 400 }))).toContain('AI 요청을 처리하지 못했어요');
 	});
+	it('logs provider status without logging the provider message or request content', async () => {
+		const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const error = Object.assign(new Error('private provider details'), { status: 400 });
+		sdk.text.mockRejectedValue(error);
+		try {
+			await expect(generateText(env, 'private prompt', [], { task: 'transcribe' })).rejects.toBe(error);
+			const entry = JSON.parse(log.mock.calls[0][0] as string);
+			expect(entry).toMatchObject({ event: 'gemini_request_failed', task: 'transcribe', status: 400, category: 'provider_or_network' });
+			expect(JSON.stringify(entry)).not.toMatch(/private/);
+		} finally {
+			log.mockRestore();
+		}
+	});
+	it('logs a fixed reason for a recognized provider failure', async () => {
+		const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const error = Object.assign(new Error('User location is not supported for the API use.'), { status: 400 });
+		sdk.text.mockRejectedValue(error);
+		try {
+			await expect(generateText(env, '', [], { task: 'transcribe' })).rejects.toThrow();
+			expect(JSON.parse(log.mock.calls[0][0] as string).reason).toBe('unsupported_location');
+			expect(errorMessage(error)).toContain('새 대화를 시작');
+		} finally {
+			log.mockRestore();
+		}
+	});
 	it('publishes partial text before the final answer', async () => {
 		sdk.stream.mockResolvedValue(events([{ text: 'Hello' }, { text: ' there!', candidates: [{ finishReason: 'STOP' }] }]));
 		const partial = vi.fn();

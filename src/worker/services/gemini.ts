@@ -36,6 +36,16 @@ export function createGeminiClient(env: GeminiEnv) {
 
 type TextTask = 'reply' | 'transcribe' | 'learning';
 
+function providerErrorReason(error: unknown) {
+	const message = error instanceof Error ? error.message : '';
+	if (/API_KEY_INVALID|API key not valid/i.test(message)) return 'invalid_api_key';
+	if (/API_KEY_SERVICE_BLOCKED|API key.{0,80}(?:restrict|blocked)/i.test(message)) return 'api_key_restricted';
+	if (/location.{0,80}not supported|unsupported.{0,40}(?:region|location|country)/i.test(message)) return 'unsupported_location';
+	if (/(?:audio|media|mime).{0,100}(?:invalid|unsupported|decode|corrupt)|(?:invalid|unsupported|decode|corrupt).{0,100}(?:audio|media|mime)/i.test(message)) return 'invalid_audio';
+	if (/model.{0,80}(?:not found|not supported|invalid)/i.test(message)) return 'invalid_model';
+	return 'unknown';
+}
+
 export function textSettings(env: GeminiEnv, task: TextTask) {
 	const model = (task === 'reply' ? env.GEMINI_REPLY_MODEL : task === 'transcribe' ? env.GEMINI_TRANSCRIBE_MODEL : env.GEMINI_LEARNING_MODEL)
 		|| env.GEMINI_MODEL || 'gemini-3.8-flash';
@@ -95,11 +105,21 @@ export async function generateText(
 		text = text.trim();
 		if (!text || text.length > 16_000) throw new ServiceError('AI 응답을 읽지 못했어요. 다시 시도해 주세요.');
 		return text;
-	}, { model });
+	}, { model }).catch((error: unknown) => {
+		// Provider messages may contain request data; record only a safe status and category.
+		const status = error && typeof error === 'object' && 'status' in error && typeof error.status === 'number'
+			? error.status : undefined;
+		console.error(JSON.stringify({ event: 'gemini_request_failed', task: options.task, model, status,
+			category: error instanceof ServiceError ? 'response_validation' : 'provider_or_network',
+			reason: providerErrorReason(error) }));
+		throw error;
+	});
 }
 
 export function errorMessage(error: unknown) {
 	if (error instanceof ServiceError) return error.message;
+	if (providerErrorReason(error) === 'unsupported_location')
+		return '현재 대화가 AI를 지원하지 않는 서버 지역에 연결됐어요. 새 대화를 시작해 다시 시도해 주세요.';
 	const status = error && typeof error === 'object' && 'status' in error ? error.status : undefined;
 	const message = error instanceof Error ? error.message : '';
 	if (status === 400 && /API_KEY_INVALID|API key not valid/i.test(message))

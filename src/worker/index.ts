@@ -47,7 +47,8 @@ app.all('/agents/*', requireSession, async (c) => {
   const match = new URL(c.req.url).pathname.match(/^\/agents\/lingo-agent\/([a-f0-9-]{36})(?:\/|$)/i);
   if (!match || !(await measure('ownership', () => ownsConversation(c.env, match[1], c.get('userId')))))
     return c.json({ error: 'Not found' }, 404);
-  return await routeAgentRequest(c.req.raw, c.env) ?? c.json({ error: 'Not found' }, 404);
+  // New conversations should be placed near Korea/Japan, where Gemini is available.
+  return await routeAgentRequest(c.req.raw, c.env, { locationHint: 'apac-ne' }) ?? c.json({ error: 'Not found' }, 404);
 });
 app.all('*', (c) => c.env.ASSETS.fetch(c.req.raw));
 
