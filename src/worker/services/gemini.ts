@@ -101,6 +101,9 @@ export async function generateText(
 export function errorMessage(error: unknown) {
 	if (error instanceof ServiceError) return error.message;
 	const status = error && typeof error === 'object' && 'status' in error ? error.status : undefined;
+	const message = error instanceof Error ? error.message : '';
+	if (status === 400 && /API_KEY_INVALID|API key not valid/i.test(message))
+		return 'Gemini API 키가 유효하지 않아요. 서버의 GEMINI_API_KEY를 확인해 주세요.';
 	if (status === 429) return 'AI 사용량 한도에 도달했어요. 잠시 후 다시 시도해 주세요.';
 	if (status === 401 || status === 403) return 'Gemini API 키와 모델 접근 권한을 확인해 주세요.';
 	return 'AI 요청을 처리하지 못했어요. 모델 설정을 확인하거나 잠시 후 다시 시도해 주세요.';

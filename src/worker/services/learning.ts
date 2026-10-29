@@ -6,8 +6,8 @@ import { generateText, ServiceError, type GeminiEnv } from './gemini';
 const string = { type: 'string' };
 const expressionSchema = {
 	type: 'object',
-	properties: { text: string, translation: string, explanation: string },
-	required: ['text', 'translation', 'explanation'],
+	properties: { text: string, translation: string, pronunciation: string, explanation: string },
+	required: ['text', 'translation', 'pronunciation', 'explanation'],
 	additionalProperties: false,
 };
 const schema = {
@@ -50,7 +50,7 @@ function sentence(value: unknown) {
 
 function expression(value: unknown, id: string): Expression {
 	const data = object(value);
-	return { id, text: sentence(data.text), translation: sentence(data.translation), explanation: sentence(data.explanation) };
+	return { id, text: sentence(data.text), translation: sentence(data.translation), pronunciation: typeof data.pronunciation === 'string' && data.pronunciation.trim() ? sentence(data.pronunciation) : undefined, explanation: sentence(data.explanation) };
 }
 
 export function parseLearning(value: unknown, turnId: string): { translation: string; explanation: string; learning: Learning } {

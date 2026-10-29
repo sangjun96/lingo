@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ArrowDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { MAX_TURNS } from '../../../shared/conversation';
 import { useConversation } from './use-conversation';
 import { useAudioPlayer } from './use-audio-player';
@@ -29,7 +30,6 @@ export function ConversationPage({ sessionId, onNew, onSignOut }: { sessionId: s
 	const player = useAudioPlayer(conversation.base);
 	const [viewedId, setViewedId] = useState<string | null>(null);
 	const autoplay = useRef<string | null>(null);
-	const content = useRef<HTMLElement | null>(null);
 	const latency = useRef<{ id: string; started: number; text: boolean; reply: boolean; audio: boolean } | null>(null);
 	const send = async (input: Blob | null) => {
 		player.stop();
@@ -99,7 +99,7 @@ export function ConversationPage({ sessionId, onNew, onSignOut }: { sessionId: s
 					setViewedId(id);
 				}}
 			/>
-			<main ref={content} className="mx-auto min-h-0 w-full max-w-xl flex-1 space-y-6 overflow-y-auto px-4 py-8 sm:px-6 sm:py-10">
+			<main className="mx-auto min-h-0 w-full max-w-xl flex-1 space-y-6 overflow-y-auto px-5 py-7 sm:px-6 sm:py-10">
 				<div className="flex items-center justify-between gap-3">
 					<Badge variant="secondary" className="gap-2 py-1.5" role="status">
 						<span className={`size-1.5 rounded-full ${recording ? 'bg-red-500' : 'bg-emerald-600'}`} />
@@ -109,19 +109,20 @@ export function ConversationPage({ sessionId, onNew, onSignOut }: { sessionId: s
 				</div>
 				<div className="space-y-2">
 					<label htmlFor="learning-language" className="text-sm font-medium">학습 언어</label>
-					<select
-						id="learning-language"
+					<Select
 						value={language}
 						disabled={!loaded || !connected || busy || recording || state.turns.length > 0 || conversation.canRetrySend}
-						onChange={(event) => {
-							if (!isLanguage(event.target.value)) return;
-							setSelectedLanguage(event.target.value);
-							try { localStorage.setItem('lingo-language', event.target.value); } catch { /* The selection still works in this tab. */ }
+						onValueChange={(value) => {
+							if (!isLanguage(value)) return;
+							setSelectedLanguage(value);
+							try { localStorage.setItem('lingo-language', value); } catch { /* The selection still works in this tab. */ }
 						}}
-						className="min-h-11 w-full rounded-md border bg-background px-3 text-sm disabled:opacity-60"
 					>
-						{Object.entries(languages).map(([code, item]) => <option key={code} value={code}>{item.label}</option>)}
-					</select>
+						<SelectTrigger id="learning-language" className="min-h-11 w-full px-3"><SelectValue /></SelectTrigger>
+						<SelectContent position="popper">
+							{Object.entries(languages).map(([code, item]) => <SelectItem key={code} value={code} className="min-h-10">{item.label}</SelectItem>)}
+						</SelectContent>
+					</Select>
 					{state.turns.length > 0 && <p className="text-xs text-muted-foreground">언어를 바꾸려면 새 대화를 시작해 주세요.</p>}
 				</div>
 				<ConversationNotices
@@ -138,7 +139,35 @@ export function ConversationPage({ sessionId, onNew, onSignOut }: { sessionId: s
 					}}
 				/>
 				{!latestReply && !busy && !latest?.error && <WelcomeState language={language} disabled={disabled || recording} onStart={() => void send(null)} />}
-				{(busy || latest?.error || (conversation.error && activity.elapsed !== null) || (latest && viewed?.id === latest.id)) && (
+
+				{(conversation.partial || viewed?.assistant) && (
+					<>
+						{!busy && viewed?.id !== latestReply?.id && (
+							<Button variant="secondary" className="min-h-11 w-full" onClick={() => setViewedId(null)}>
+								<ArrowDown /> 새 대화 보기
+							</Button>
+						)}
+						<div className="space-y-3 rounded-3xl border border-violet-300/10 bg-gradient-to-br from-[#242337] to-[#181824] p-6 sm:p-8">
+							<p className="text-xs font-medium tracking-wide text-violet-300">
+								{conversation.partial ? 'AI가 이야기하고 있어요' : viewed?.id !== latestReply?.id ? '이전 대화 · AI' : 'AI의 이야기'}
+							</p>
+							<p lang={languageInfo.tag} aria-busy={!!conversation.partial} className="text-xl leading-relaxed font-medium break-words sm:text-2xl">
+								{conversation.partial || viewed?.assistant?.text}
+								{conversation.partial && <span aria-hidden="true" className="activity-cursor ml-1 inline-block h-5 w-0.5 translate-y-0.5 bg-foreground/60" />}
+							</p>
+							{!busy && viewed?.assistant?.translation && <p className="text-sm leading-relaxed text-muted-foreground">{viewed.assistant.translation}</p>}
+							{!busy && viewed?.assistant && <Button variant="ghost" size="sm" className="-ml-2 text-violet-200" disabled={recording} onClick={() => player.playingId === viewed.assistant?.id ? player.stop() : void player.play(viewed.assistant!.id)}>{player.playingId === viewed.assistant.id ? '음성 멈추기' : '다시 듣기'}</Button>}
+						</div>
+						{!busy && viewed && <LearningPanel
+							language={language}
+							turn={viewed}
+							player={player}
+							recording={recording}
+							onRetry={() => void conversation.retry('learning', viewed.id)}
+						/>}
+					</>
+				)}
+				{(busy && !conversation.partial) && (
 					<ConversationActivity
 						key={state.activeTurnId ?? latest?.id ?? 'sending'}
 						stage={activity.stage}
@@ -146,34 +175,7 @@ export function ConversationPage({ sessionId, onNew, onSignOut }: { sessionId: s
 						turn={activity.turn}
 						busy={busy}
 						player={player}
-						userLanguage={languageInfo.tag}
 					/>
-				)}
-				{(conversation.partial || (!busy && viewed?.assistant)) && (
-					<>
-						{!busy && viewed?.id !== latestReply?.id && (
-							<Button variant="secondary" className="min-h-11 w-full" onClick={() => setViewedId(null)}>
-								<ArrowDown /> 새 대화 보기
-							</Button>
-						)}
-						<div className="space-y-2">
-							<p className="text-xs text-muted-foreground">
-								{busy ? '지금 작성하고 있는 이야기' : viewed?.id !== latestReply?.id ? '이전 대화를 살펴보고 있어요' : '지금 이어갈 이야기'}
-							</p>
-							<p lang={languageInfo.tag} aria-busy={busy} className="text-xl leading-relaxed font-medium break-words sm:text-2xl">
-								{conversation.partial || viewed?.assistant?.text}
-								{busy && <span aria-hidden="true" className="activity-cursor ml-1 inline-block h-5 w-0.5 translate-y-0.5 bg-foreground/60" />}
-							</p>
-						</div>
-						{!busy && viewed && <LearningPanel
-							language={language}
-							turn={viewed}
-							player={player}
-							recording={recording}
-							scrollContainer={content}
-							onRetry={() => void conversation.retry('learning', viewed.id)}
-						/>}
-					</>
 				)}
 				{exhausted && (
 					<p role="status" className="rounded-xl bg-muted p-4 text-sm">

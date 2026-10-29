@@ -158,3 +158,31 @@
 		@apply font-sans;
 	}
 }
+
+/* A quiet, low-glare space for conversation. */
+:root {
+ color-scheme: dark;
+ --background: #111119;
+ --foreground: #f3f1fa;
+ --card: #1a1a27;
+ --card-foreground: #f3f1fa;
+ --popover: #222231;
+ --popover-foreground: #f3f1fa;
+ --primary: #b9a4ff;
+ --primary-foreground: #191329;
+ --secondary: #292839;
+ --secondary-foreground: #eeeafc;
+ --muted: #242431;
+ --muted-foreground: #a4a2b5;
+ --accent: #343047;
+ --accent-foreground: #f3f1fa;
+ --border: #343343;
+ --input: #343343;
+ --ring: #b9a4ff;
+}
+@keyframes float-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes float-out { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(12px); } }
+@media (prefers-reduced-motion: no-preference) {
+ .float-in { animation: float-in 600ms ease-out both; }
+ .float-out { animation: float-out 1s ease-in both; }
+}

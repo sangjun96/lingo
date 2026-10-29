@@ -25,9 +25,9 @@ export function ConversationHeader({
 		<header className="shrink-0 border-b px-4 sm:px-8">
 			<div className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-2 py-4">
 				<div className="flex items-center gap-2">
-					<AudioLines className="size-6" />
+					<AudioLines className="size-6 text-violet-300" />
 					<span className="text-xl font-semibold tracking-tight">
-						lingo<span className="text-muted-foreground">.</span>
+						lingo<span className="text-violet-300">.</span>
 					</span>
 				</div>
 				<div className="flex gap-1">

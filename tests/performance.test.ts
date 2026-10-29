@@ -9,7 +9,7 @@ vi.mock('@google/genai', () => ({
 		interactions = { create: sdk.speech };
 	},
 }));
-import { generateText, textSettings } from '../src/worker/services/gemini';
+import { errorMessage, generateText, textSettings } from '../src/worker/services/gemini';
 import { languages, type Language } from '../src/shared/languages';
 import { promptSets } from '../src/worker/services/prompts';
 import { streamSpeech } from '../src/worker/services/speech';
@@ -27,6 +27,11 @@ describe('low-latency generation', () => {
 		expect(textSettings({ ...env, GEMINI_MODEL: 'custom' }, 'reply').thinkingConfig.thinkingLevel).toBe('LOW');
 		expect(() => textSettings({ ...env, GEMINI_REPLY_THINKING: 'invalid' }, 'reply')).toThrow();
 		expect(() => textSettings({ ...env, GEMINI_REPLY_THINKING: 'MINIMAL' }, 'reply')).toThrow();
+	});
+	it('identifies an invalid API key without exposing the provider error', () => {
+		const error = Object.assign(new Error('{"error":{"details":[{"reason":"API_KEY_INVALID"}]}}'), { status: 400 });
+		expect(errorMessage(error)).toContain('Gemini API 키가 유효하지 않아요');
+		expect(errorMessage(Object.assign(new Error('other bad request'), { status: 400 }))).toContain('AI 요청을 처리하지 못했어요');
 	});
 	it('publishes partial text before the final answer', async () => {
 		sdk.stream.mockResolvedValue(events([{ text: 'Hello' }, { text: ' there!', candidates: [{ finishReason: 'STOP' }] }]));

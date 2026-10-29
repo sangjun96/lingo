@@ -4,6 +4,7 @@ export type Expression = {
 	id: string;
 	text: string;
 	translation: string;
+	pronunciation?: string;
 	explanation: string;
 };
 

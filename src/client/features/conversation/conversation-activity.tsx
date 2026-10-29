@@ -15,13 +15,12 @@ const titles: Record<ActivityStage, string> = {
 	reconnecting: '다시 연결하고 있어요',
 };
 
-export function ConversationActivity({ stage, elapsed, turn, busy, player, userLanguage }: {
+export function ConversationActivity({ stage, elapsed, turn, busy, player }: {
 	stage: ActivityStage;
 	elapsed: number | null;
 	turn?: Turn;
 	busy: boolean;
 	player: AudioPlayer;
-	userLanguage: string;
 }) {
 	const [expanded, setExpanded] = useState(false);
 	const complete = stage === 'complete';
@@ -58,7 +57,6 @@ export function ConversationActivity({ stage, elapsed, turn, busy, player, userL
 								</li>
 							))}
 						</ol>
-						{turn?.userText && <p lang={userLanguage} className="mt-3 rounded-lg bg-muted/60 p-3 text-sm leading-relaxed break-words"><span className="mb-1 block text-xs text-muted-foreground">내가 한 말</span>{turn.userText}</p>}
 					</TraceCollapsibleContent>
 				</TraceCollapsible>
 			</Trace>

@@ -31,9 +31,9 @@ export function WelcomeState({ language, disabled, onStart }: { language: Langua
 				</CardContent>
 			</Card>
 			<p className="text-xs leading-6 text-muted-foreground">
-				AI 문장 · 답변 추천 3개 · 내 표현 피드백
+				AI의 이야기를 듣고, 답변 힌트를 따라 말해 보세요.
 				<br />
-				필요할 때 자유롭게 오가며 볼 수 있어요.
+				힌트는 잠시 후 사라지지만 다시 볼 수 있어요.
 			</p>
 		</section>
 	);

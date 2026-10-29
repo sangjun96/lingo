@@ -1,136 +1,50 @@
-import { languages, type Language } from '../../../shared/languages';
-import { useLayoutEffect, useRef, useState, type RefObject } from 'react';
-import { BookOpen, Lightbulb, MessageCircle, RotateCcw } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useEffect, useState } from 'react';
+import { Lightbulb, RotateCcw, Volume2, Square, LoaderCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Card, CardContent } from '@/components/ui/card';
+import { languages, type Language } from '../../../shared/languages';
 import type { Turn } from '../../../shared/conversation';
-import { ExpressionCard } from './expression-card';
 import type { AudioPlayer } from './use-audio-player';
 
-export function LearningPanel({
-	language,
-	turn,
-	player,
-	recording,
-	scrollContainer,
-	onRetry,
-}: {
-	language: Language;
-	turn: Turn;
-	player: AudioPlayer;
-	recording: boolean;
-	scrollContainer: RefObject<HTMLElement | null>;
-	onRetry: () => void;
+export function LearningPanel({ language, turn, player, recording, onRetry }: {
+ language: Language; turn: Turn; player: AudioPlayer; recording: boolean; onRetry: () => void;
 }) {
-	const [tab, setTab] = useState('sentence');
-	const positions = useRef<Record<string, number>>({});
-	const previousTurn = useRef(turn.id);
-	useLayoutEffect(() => {
-		if (previousTurn.current !== turn.id) {
-			positions.current = {};
-			previousTurn.current = turn.id;
-		}
-		if (scrollContainer.current) scrollContainer.current.scrollTop = positions.current[tab] || 0;
-	}, [tab, turn.id, scrollContainer]);
-	const learning = turn.learning;
-	const waiting = learning.status === 'pending';
-	const notice =
-		learning.status === 'error' ? (
-			<div role="status" className="space-y-3 rounded-xl bg-muted p-4 text-sm">
-				<p>{learning.error}</p>
-				<Button variant="outline" className="min-h-10" onClick={onRetry}>
-					<RotateCcw /> 학습 자료 다시 만들기
-				</Button>
-			</div>
-		) : waiting ? (
-			<div role="status" className="space-y-3 py-4">
-				<p className="text-sm text-muted-foreground">대화는 계속해도 좋아요. 학습 자료를 준비하고 있어요.</p>
-				<Skeleton className="h-16 w-full" />
-				<Skeleton className="h-16 w-full" />
-				<Skeleton className="h-16 w-full" />
-			</div>
-		) : null;
-
-	return (
-		<Tabs
-			value={tab}
-			onValueChange={(value) => {
-				positions.current[tab] = scrollContainer.current?.scrollTop || 0;
-				setTab(value);
-			}}
-			className="gap-5"
-		>
-			<TabsList className="h-12 w-full" aria-label="대화 학습 도구">
-				<TabsTrigger className="min-h-10 data-[state=active]:bg-background data-[state=active]:shadow-sm" value="sentence">
-					<MessageCircle /> AI 문장
-				</TabsTrigger>
-				<TabsTrigger className="min-h-10 data-[state=active]:bg-background data-[state=active]:shadow-sm" value="suggestions">
-					<Lightbulb /> 답변 추천
-				</TabsTrigger>
-				<TabsTrigger className="min-h-10 data-[state=active]:bg-background data-[state=active]:shadow-sm" value="feedback">
-					<BookOpen /> 내 표현
-				</TabsTrigger>
-			</TabsList>
-			<div>
-				<TabsContent value="sentence" forceMount hidden={tab !== 'sentence'} className="space-y-4">
-					{turn.assistant && (
-						<ExpressionCard
-							language={language}
-							key={turn.assistant.id}
-							expression={turn.assistant}
-							label="AI가 한 말"
-							player={player}
-							disabled={recording}
-							translationPending={waiting}
-						/>
-					)}
-					{learning.status === 'error' && notice}
-					{waiting && (
-						<p role="status" className="text-sm text-muted-foreground">
-							뜻과 표현을 준비하고 있어요.
-						</p>
-					)}
-				</TabsContent>
-				<TabsContent value="suggestions" forceMount hidden={tab !== 'suggestions'} className="space-y-3">
-					<p className="text-sm text-muted-foreground">정답은 없어요. 마음에 드는 표현을 골라 바꿔 말해 보세요.</p>
-					{notice}
-					{learning.suggestions.map((expression) => (
-						<ExpressionCard language={language} key={expression.id} expression={expression} label={expression.label} player={player} disabled={recording} />
-					))}
-				</TabsContent>
-				<TabsContent value="feedback" forceMount hidden={tab !== 'feedback'} className="space-y-4">
-					{turn.userText ? (
-						<Card className="bg-muted/40 shadow-none">
-							<CardContent className="space-y-2">
-								<p className="text-xs text-muted-foreground">내가 한 말{turn.source === 'audio' ? ' · 음성 인식 결과' : ''}</p>
-								<p lang={languages[language].tag} className="leading-relaxed break-words">
-									{turn.userText}
-								</p>
-							</CardContent>
-						</Card>
-					) : (
-						<p className="py-4 text-sm text-muted-foreground">첫 대답을 해보세요. 내가 한 말의 표현을 함께 살펴볼 수 있어요.</p>
-					)}
-					{turn.userText && (
-						<>
-							{notice}
-							{learning.feedback?.improved && (
-								<ExpressionCard
-									language={language}
-									key={learning.feedback.improved.id}
-									expression={learning.feedback.improved}
-									label="이렇게 말해볼 수 있어요"
-									player={player}
-									disabled={recording}
-								/>
-							)}
-							{learning.feedback && <p className="px-1 text-sm leading-relaxed text-muted-foreground">{learning.feedback.explanation}</p>}
-						</>
-					)}
-				</TabsContent>
-			</div>
-		</Tabs>
-	);
+ const [seconds, setSeconds] = useState(0);
+ const [replay, setReplay] = useState(0);
+ const learning = turn.learning;
+ useEffect(() => {
+  setSeconds(0);
+  const started = Date.now();
+  const timer = window.setInterval(() => setSeconds((Date.now() - started) / 1000), 250);
+  return () => window.clearInterval(timer);
+ }, [turn.id, learning.status, replay]);
+ const finished = seconds >= 32;
+ return <section aria-label="대화와 힌트" className="space-y-5">
+  {learning.status === 'error' && <div role="status" className="rounded-2xl bg-muted p-4 text-sm"><p>{learning.error}</p><Button variant="outline" className="mt-3" onClick={onRetry}><RotateCcw /> 학습 자료 다시 만들기</Button></div>}
+  {learning.status === 'pending' && <p role="status" className="text-sm text-muted-foreground">답변 힌트를 준비하고 있어요.</p>}
+  {learning.status === 'ready' && <div className="space-y-3">
+   {turn.userText && learning.feedback && seconds < 26 && <div className={`float-in rounded-2xl border border-white/5 bg-white/[0.035] px-5 py-4 ${seconds >= 25 ? 'float-out' : ''}`}>
+    <p className="mb-2 text-xs font-medium text-muted-foreground">내 표현 피드백</p>
+    {learning.feedback.improved && <p lang={languages[language].tag} className="mb-1 leading-relaxed text-foreground">더 자연스럽게: {learning.feedback.improved.text}</p>}
+    <p className="text-sm leading-relaxed text-muted-foreground">{learning.feedback.explanation}</p>
+   </div>}
+   {!finished && <div className="flex items-center gap-2 text-xs font-medium tracking-wide text-violet-300"><Lightbulb className="size-4" /> 이렇게 답해볼까요?</div>}
+   {learning.suggestions.map((expression, index) => {
+    const start = index * 1.3;
+    const end = 26 + index * 3;
+    if (seconds < start || seconds >= end) return null;
+    const active = player.playingId === expression.id;
+    return <article key={expression.id} className={`float-in rounded-2xl border border-violet-300/10 bg-[#1b1b2a] px-5 py-4 ${seconds >= end - 1 ? 'float-out' : ''}`}>
+     <div className="flex items-start justify-between gap-3">
+      <div className="min-w-0 space-y-1.5"><p className="text-xs text-violet-300">{expression.label}</p><p lang={languages[language].tag} className="font-medium leading-relaxed break-words">{expression.text}</p>
+       {expression.pronunciation && <p className="text-sm text-violet-200/80">{expression.pronunciation}</p>}
+       <p className="text-sm leading-relaxed text-muted-foreground">{expression.translation}</p></div>
+      <Button variant="ghost" size="icon" disabled={recording} onClick={() => active ? player.stop() : void player.play(expression.id)} aria-label={`${expression.label} ${active ? '재생 멈추기' : '듣기'}`}>
+       {active ? player.loading ? <LoaderCircle className="animate-spin" /> : <Square /> : <Volume2 />}
+      </Button>
+     </div>
+    </article>;
+   })}
+   {finished && <Button variant="ghost" className="text-muted-foreground" onClick={() => setReplay(value => value + 1)}><RotateCcw /> 힌트 다시 보기</Button>}
+  </div>}
+ </section>;
 }
